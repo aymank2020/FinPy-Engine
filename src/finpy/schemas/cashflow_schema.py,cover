@@ -1,0 +1,48 @@
+> from decimal import Decimal, DecimalException
+> from finpy.core.types import Cashflow
+> from finpy.core.errors import SchemaValidationError
+  
+  
+> def validate_cashflow(data: dict) -> Cashflow:
+!     if "amount" not in data or "t" not in data:
+!         raise SchemaValidationError("cashflow must have 'amount' and 't' fields")
+!     try:
+!         return Cashflow(amount=Decimal(str(data["amount"])), t=float(data["t"]))
+!     except (ValueError, TypeError, DecimalException) as e:
+!         raise SchemaValidationError(str(e))
+  
+  
+> def dump_cashflow(cf: Cashflow) -> dict:
+!     return {"amount": str(cf.amount), "t": cf.t}
+  
+  
+> def load_cashflow(data: dict) -> Cashflow:
+!     return validate_cashflow(data)
+  
+  
+> def validate_cashflow_list(data_list: list[dict]) -> list[Cashflow]:
+!     return [validate_cashflow(d) for d in data_list]
+  
+  
+> def dump_cashflow_list(cflist: list[Cashflow]) -> list[dict]:
+!     return [dump_cashflow(cf) for cf in cflist]
+  
+  
+> def cashflow_to_json(cf: Cashflow) -> str:
+!     import json
+!     return json.dumps(dump_cashflow(cf))
+  
+  
+> def cashflow_from_json(json_str: str) -> Cashflow:
+!     import json
+!     data = json.loads(json_str)
+!     return validate_cashflow(data)
+  
+  
+> def validate_cashflow_schedule(schedule: list[dict]) -> list[Cashflow]:
+!     flows = validate_cashflow_list(schedule)
+!     times = [f.t for f in flows]
+!     for i in range(1, len(times)):
+!         if times[i] <= times[i - 1]:
+!             raise SchemaValidationError(f"cashflow times must be increasing, got {times[i]} <= {times[i - 1]}")
+!     return flows

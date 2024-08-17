@@ -1,0 +1,167 @@
+> from decimal import Decimal, ROUND_HALF_UP
+> from typing import Optional
+  
+  
+> def present_value(rate: float, nper: int, pmt: float, fv: float = 0.0, when: str = "end", *, ndigits: Optional[int] = None) -> Decimal:
+!     r = Decimal(str(rate))
+!     n = Decimal(str(nper))
+!     p = Decimal(str(pmt))
+!     fv_dec = Decimal(str(fv))
+!     one = Decimal(1)
+!     if r == 0:
+!         pv = p * n + fv_dec
+!     else:
+!         factor = (one + r) ** n
+!         if when == "begin":
+!             pv = p * (one + r) * (one - (one + r) ** (-n)) / r + fv_dec / factor
+!         else:
+!             pv = p * (one - (one + r) ** (-n)) / r + fv_dec / factor
+!     if ndigits is not None:
+!         pv = pv.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return pv
+  
+  
+> def annuity_due(rate: float, nper: int, pmt: float, *, ndigits: Optional[int] = None) -> Decimal:
+!     r = Decimal(str(rate))
+!     n = Decimal(str(nper))
+!     p = Decimal(str(pmt))
+!     one = Decimal(1)
+!     if r == 0:
+!         result = p * n
+!     else:
+!         result = p * (one + r) * (one - (one + r) ** (-n)) / r
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def perpetuity(rate: float, pmt: float, *, ndigits: Optional[int] = None) -> Decimal:
+!     r = Decimal(str(rate))
+!     p = Decimal(str(pmt))
+!     if r == 0:
+!         raise ValueError("Rate cannot be zero for perpetuity")
+!     result = p / r
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def perpetuity_due(rate: float, pmt: float, *, ndigits: Optional[int] = None) -> Decimal:
+!     r = Decimal(str(rate))
+!     p = Decimal(str(pmt))
+!     one = Decimal(1)
+!     if r == 0:
+!         raise ValueError("Rate cannot be zero for perpetuity due")
+!     result = p * (one + r) / r
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def growing_perpetuity(rate: float, growth_rate: float, pmt: float, *, ndigits: Optional[int] = None) -> Decimal:
+!     r = Decimal(str(rate))
+!     g = Decimal(str(growth_rate))
+!     p = Decimal(str(pmt))
+!     if r <= g:
+!         raise ValueError("Rate must be greater than growth rate for growing perpetuity")
+!     result = p / (r - g)
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def growing_annuity(rate: float, growth_rate: float, nper: int, pmt: float, when: str = "end", *, ndigits: Optional[int] = None) -> Decimal:
+!     r = Decimal(str(rate))
+!     g = Decimal(str(growth_rate))
+!     n = Decimal(str(nper))
+!     p = Decimal(str(pmt))
+!     one = Decimal(1)
+!     if r == g:
+!         if when == "begin":
+!             result = p * n
+!         else:
+!             result = p * n / (one + r)
+!     else:
+!         if when == "begin":
+!             result = p * (one + r) * (one - ((one + g) / (one + r)) ** n) / (r - g)
+!         else:
+!             result = p * (one - ((one + g) / (one + r)) ** n) / (r - g)
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def pv_of_uneven_cashflows(rate: float, cash_flows: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+!     r = Decimal(str(rate))
+!     one = Decimal(1)
+!     result = Decimal(0)
+!     for t, cf in enumerate(cash_flows):
+!         result += Decimal(str(cf)) / (one + r) ** Decimal(str(t + 1))
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def pv_continuous_compounding(rate: float, nper: int, fv: float, *, ndigits: Optional[int] = None) -> Decimal:
+!     import math
+!     r = Decimal(str(rate))
+!     n = Decimal(str(nper))
+!     fv_dec = Decimal(str(fv))
+!     e = Decimal(str(math.e))
+!     result = fv_dec / (e ** (r * n))
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def pv_of_perpetuity_with_delay(rate: float, pmt: float, delay_periods: int, *, ndigits: Optional[int] = None) -> Decimal:
+!     r = Decimal(str(rate))
+!     p = Decimal(str(pmt))
+!     d = Decimal(str(delay_periods))
+!     one = Decimal(1)
+!     if r == 0:
+!         raise ValueError("Rate cannot be zero for perpetuity with delay")
+!     perpetuity_val = p / r
+!     result = perpetuity_val / (one + r) ** d
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def pv_of_annuity_continuous(rate: float, nper: int, pmt: float, *, ndigits: Optional[int] = None) -> Decimal:
+!     r = Decimal(str(rate))
+!     n = Decimal(str(nper))
+!     p = Decimal(str(pmt))
+!     if r == 0:
+!         result = p * n
+!     else:
+!         result = p * (Decimal(1) - (-r * n).exp()) / r
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def pv_of_deferred_annuity(rate: float, nper: int, pmt: float, defer_periods: int, when: str = "end", *, ndigits: Optional[int] = None) -> Decimal:
+!     pv_annuity = present_value(rate, nper, pmt, when=when)
+!     r = Decimal(str(rate))
+!     d = Decimal(str(defer_periods))
+!     one = Decimal(1)
+!     result = pv_annuity / (one + r) ** d
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def pv_of_growing_perpetuity_with_delay(rate: float, growth_rate: float, pmt: float, delay_periods: int, *, ndigits: Optional[int] = None) -> Decimal:
+!     r = Decimal(str(rate))
+!     g = Decimal(str(growth_rate))
+!     p = Decimal(str(pmt))
+!     d = Decimal(str(delay_periods))
+!     one = Decimal(1)
+!     if r <= g:
+!         raise ValueError("Rate must be greater than growth rate")
+!     growing_perp_val = p / (r - g)
+!     result = growing_perp_val / (one + r) ** d
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
