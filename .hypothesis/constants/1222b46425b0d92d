@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\core\discount.py
+# hypothesis_version: 6.152.7
+
+[1e-10, 0.05, -365, 360, 365, 1000, 'annual', 'bond-basis', 'continuous', 'daily', 'money-market', 'monthly', 'quarterly', 'semi-annual', 'weekly', 'ytm did not converge']
