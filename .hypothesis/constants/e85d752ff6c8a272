@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\migrations\0004_add_types.py
+# hypothesis_version: 6.152.7
+
+['amount', 'cashflow', 'data', 'face_value', 'instrument', 'result', 't', 'type', 'version']

@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\risk\__init__.py
+# hypothesis_version: 6.152.7
+
+['adjusted_sharpe', 'alpha_jensen', 'average_drawdown', 'beta', 'calmar_ratio', 'cornish_fisher_var', 'cvar_backtest', 'downside_deviation', 'drawdown_duration', 'drawdown_series', 'expected_shortfall', 'historical_cvar', 'historical_var', 'marginal_var', 'max_drawdown', 'modified_var', 'omega_ratio', 'parametric_var', 'probabilistic_sharpe', 'r_squared', 'sharpe_ratio', 'sortino_ratio', 'sortino_with_target', 'tracking_error_risk', 'treynor_ratio', 'ulcer_index', 'var_backtest']
