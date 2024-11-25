@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\returns\rolling.py
+# hypothesis_version: 6.152.7
+
+[1e-140, 1e-100, 0.1, 0.5, 2.0]
