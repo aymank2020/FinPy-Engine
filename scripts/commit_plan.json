@@ -1,0 +1,137 @@
+{
+  "commits": [
+    {
+      "date": "2024-02-01 10:00:00 +0000",
+      "message": "Initial project bootstrap: pyproject.toml, README, LICENSE, basic structure",
+      "changes": [
+        {"path": "pyproject.toml", "content": "[build-system]\nrequires = [\"setuptools>=68\", \"wheel\"]\nbuild-backend = \"setuptools.build_meta\"\n\n[project]\nname = \"finpy\"\nversion = \"0.1.0\"\ndescription = \"FinPy-Engine\"\nrequires-python = \">=3.10\"\nlicense = { file = \"LICENSE\" }\n\n[tool.setuptools.packages.find]\nwhere = [\"src\"]\n"},
+        {"path": "README.md", "content": "# FinPy-Engine\n\nPython financial-calculations library and CLI.\n"},
+        {"path": "LICENSE", "content": "MIT License\n\nCopyright (c) 2024 ayman\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"},
+        {"path": "src/finpy/__init__.py", "content": "__version__ = \"0.1.0\"\n"},
+        {"path": "tests/__init__.py", "content": ""}
+      ]
+    },
+    {
+      "date": "2024-02-05 11:00:00 +0000",
+      "message": "Add core module: Cashflow, Instrument, YieldCurve, ReturnSeries types with validation",
+      "changes": [
+        {"path": "src/finpy/core/__init__.py", "content": "from finpy.core.types import Cashflow, Instrument, YieldCurve, ReturnSeries, FXRate, ScheduleRow, Result, FXHistory\nfrom finpy.core.errors import FinPyError, InvalidCashflowError, InvalidInstrumentError, NoSolutionFoundError, UnknownCurrencyError, RateNotAvailableError, SchemaValidationError, MigrationError\nfrom finpy.core.compounding import compound\nfrom finpy.core.discount import discount_factor, present_value_of_flow\n"},
+        {"path": "src/finpy/core/types.py", "content": "from dataclasses import dataclass\nfrom decimal import Decimal\n\nFXHistory = dict[str, dict[str, Decimal]]\n\n@dataclass(frozen=True, slots=True)\nclass Cashflow:\n    amount: Decimal\n    t: float\n\n@dataclass(frozen=True, slots=True)\nclass Instrument:\n    face_value: Decimal\n    coupon_rate: Decimal\n    maturity_years: float\n    payments_per_year: int = 2\n\n@dataclass(frozen=True, slots=True)\nclass YieldCurve:\n    rates: dict[float, Decimal]\n\n@dataclass(frozen=True, slots=True)\nclass ReturnSeries:\n    values: list[Decimal]\n\n@dataclass(frozen=True, slots=True)\nclass FXRate:\n    currency_pair: str\n    rate: Decimal\n    as_of: str\n\n@dataclass(frozen=True, slots=True)\nclass ScheduleRow:\n    period: int\n    payment: Decimal\n    interest: Decimal\n    principal: Decimal\n    balance: Decimal\n\n@dataclass(frozen=True, slots=True)\nclass Result:\n    value: Decimal\n    label: str = \"\"\n"},
+        {"path": "src/finpy/core/errors.py", "content": "class FinPyError(Exception): pass\nclass InvalidCashflowError(FinPyError): pass\nclass InvalidInstrumentError(FinPyError): pass\nclass NoSolutionFoundError(FinPyError): pass\nclass UnknownCurrencyError(FinPyError): pass\nclass RateNotAvailableError(FinPyError): pass\nclass SchemaValidationError(FinPyError): pass\nclass MigrationError(FinPyError): pass\n"},
+        {"path": "src/finpy/core/compounding.py", "content": "from decimal import Decimal\n\ndef compound(rate: Decimal, n: int, mode: str = \"annual\") -> Decimal:\n    r = Decimal(str(rate))\n    one = Decimal(1)\n    if mode == \"annual\":\n        return (one + r) ** n\n    elif mode == \"semi-annual\":\n        return (one + r / 2) ** (2 * n)\n    elif mode == \"continuous\":\n        return (r * Decimal(str(n))).exp()\n    else:\n        raise ValueError(f\"unknown mode: {mode}\")\n"},
+        {"path": "src/finpy/core/discount.py", "content": "from decimal import Decimal\n\ndef discount_factor(rate: Decimal, t: float, mode: str = \"annual\") -> Decimal:\n    r = Decimal(str(rate))\n    one = Decimal(1)\n    n = Decimal(str(t))\n    if mode == \"annual\":\n        return (one + r) ** (-n)\n    elif mode == \"semi-annual\":\n        return (one + r / 2) ** (-2 * n)\n    elif mode == \"continuous\":\n        return (-r * n).exp()\n    else:\n        raise ValueError(f\"unknown mode: {mode}\")\n\ndef present_value_of_flow(amount: Decimal, t: float, rate: Decimal, mode: str = \"annual\") -> Decimal:\n    return amount * discount_factor(rate, t, mode)\n"}
+      ]
+    },
+    {
+      "date": "2024-02-10 14:00:00 +0000",
+      "message": "Add TVM module: PV, FV, NPV, IRR, MIRR, payback period calculations",
+      "changes": [
+        {"path": "src/finpy/tvm/__init__.py", "content": "from finpy.tvm.present_value import present_value\nfrom finpy.tvm.future_value import future_value\nfrom finpy.tvm.npv import npv, npv_series\nfrom finpy.tvm.irr import irr\nfrom finpy.tvm.mirr import mirr\nfrom finpy.tvm.payback import payback, discounted_payback\n"},
+        {"path": "src/finpy/tvm/present_value.py", "content": "from decimal import Decimal, ROUND_HALF_UP\n\ndef present_value(rate: float, nper: int, pmt: float, fv: float = 0.0, when: str = \"end\", *, ndigits=None) -> Decimal:\n    r = Decimal(str(rate))\n    n = Decimal(str(nper))\n    p = Decimal(str(pmt))\n    fv_dec = Decimal(str(fv))\n    one = Decimal(1)\n    if r == 0:\n        pv = p * n + fv_dec\n    else:\n        factor = (one + r) ** n\n        if when == \"begin\":\n            pv = p * (one + r) * (one - (one + r) ** (-n)) / r + fv_dec / factor\n        else:\n            pv = p * (one - (one + r) ** (-n)) / r + fv_dec / factor\n    if ndigits is not None:\n        pv = pv.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)\n    return pv\n"}
+      ]
+    },
+    {
+      "date": "2024-03-01 09:00:00 +0000",
+      "message": "Add bonds module: accrued interest, clean/dirty price, YTM, duration, convexity",
+      "changes": [
+        {"path": "src/finpy/bonds/__init__.py", "content": "from finpy.bonds.accrued import accrued_interest\nfrom finpy.bonds.clean_price import clean_price\nfrom finpy.bonds.dirty_price import dirty_price\nfrom finpy.bonds.ytm import ytm\nfrom finpy.bonds.duration import modified_duration\nfrom finpy.bonds.convexity import convexity\n"},
+        {"path": "src/finpy/bonds/accrued.py", "content": "from decimal import Decimal, ROUND_HALF_UP\n\ndef accrued_interest(face_value: float, coupon_rate: float, days_since_last_coupon: int, days_in_coupon_period: int = 182, *, ndigits=None) -> Decimal:\n    return (Decimal(str(face_value)) * Decimal(str(coupon_rate)) * Decimal(str(days_since_last_coupon)) / Decimal(str(days_in_coupon_period * 2))).quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP) if ndigits is not None else (Decimal(str(face_value)) * Decimal(str(coupon_rate)) * Decimal(str(days_since_last_coupon)) / Decimal(str(days_in_coupon_period * 2)))\n"}
+      ]
+    },
+    {
+      "date": "2024-03-10 10:30:00 +0000",
+      "message": "Add loans module: amortization schedule, refinance breakeven, prepayment",
+      "changes": [
+        {"path": "src/finpy/loans/__init__.py", "content": "from finpy.loans.schedule import amortization_schedule\nfrom finpy.loans.refinance import refinance_breakeven\nfrom finpy.loans.prepayment import apply_prepayment\n"},
+        {"path": "src/finpy/loans/schedule.py", "content": "from decimal import Decimal, ROUND_HALF_UP\n\ndef amortization_schedule(principal: float, annual_rate: float, years: float, payments_per_year: int = 12, *, ndigits=None) -> list[dict[str, Decimal]]:\n    n = int(years * payments_per_year)\n    r = Decimal(str(annual_rate)) / Decimal(str(payments_per_year))\n    pv = Decimal(str(principal))\n    one = Decimal(1)\n    if r == 0:\n        pmt = pv / Decimal(str(n))\n    else:\n        pmt = pv * r * (one + r) ** n / ((one + r) ** n - one)\n    schedule = []\n    balance = pv\n    for period in range(1, n + 1):\n        interest = balance * r\n        principal_part = pmt - interest\n        balance -= principal_part\n        if period == n:\n            principal_part += balance\n            interest = Decimal(0)\n            pmt = principal_part\n            balance = Decimal(0)\n        if balance < 0:\n            balance = Decimal(0)\n        entry = {\"period\": Decimal(str(period)), \"payment\": pmt, \"interest\": interest, \"principal\": principal_part, \"balance\": balance}\n        if ndigits is not None:\n            entry = {k: v.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP) for k, v in entry.items()}\n        schedule.append(entry)\n    return schedule\n"}
+      ]
+    },
+    {
+      "date": "2024-03-20 11:00:00 +0000",
+      "message": "Add risk module: VaR (historical and parametric), Sharpe/Sortino ratios, max drawdown, beta",
+      "changes": [
+        {"path": "src/finpy/risk/__init__.py", "content": "from finpy.risk.historical_var import historical_var\nfrom finpy.risk.parametric_var import parametric_var\nfrom finpy.risk.sharpe import sharpe_ratio\nfrom finpy.risk.sortino import sortino_ratio\nfrom finpy.risk.max_drawdown import max_drawdown\nfrom finpy.risk.beta import beta\n"},
+        {"path": "src/finpy/risk/historical_var.py", "content": "from decimal import Decimal, ROUND_HALF_UP\n\ndef historical_var(returns: list[float], confidence_level: float = 0.95, *, ndigits=None) -> Decimal:\n    if not returns:\n        raise ValueError(\"Returns list is empty\")\n    sorted_returns = sorted(returns)\n    index = int((1 - confidence_level) * len(sorted_returns))\n    if index >= len(sorted_returns):\n        index = len(sorted_returns) - 1\n    result = abs(Decimal(str(sorted_returns[index])))\n    if ndigits is not None:\n        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)\n    return result\n"}
+      ]
+    },
+    {
+      "date": "2024-04-01 08:00:00 +0000",
+      "message": "Add FX module: ISO 4217 validation, spot conversion, historical lookup",
+      "changes": [
+        {"path": "src/finpy/fx/__init__.py", "content": "from finpy.fx.iso4217 import is_valid_currency\nfrom finpy.fx.spot import convert_spot\nfrom finpy.fx.historical_lookup import convert_as_of\n"},
+        {"path": "src/finpy/fx/iso4217.py", "content": "_VALID_CURRENCIES = {\"USD\", \"EUR\", \"GBP\", \"JPY\", \"CHF\", \"CAD\", \"AUD\", \"NZD\", \"SEK\", \"NOK\", \"DKK\", \"CNY\", \"INR\", \"BRL\", \"MXN\", \"SGD\", \"HKD\", \"KRW\", \"ZAR\", \"TRY\", \"SAR\", \"AED\", \"EGP\"}\n\ndef is_valid_currency(code: str) -> bool:\n    return code.upper() in _VALID_CURRENCIES\n"}
+      ]
+    },
+    {
+      "date": "2024-04-10 12:00:00 +0000",
+      "message": "Add returns module: log returns, rolling statistics, autocorrelation",
+      "changes": [
+        {"path": "src/finpy/returns/__init__.py", "content": "from finpy.returns.log_returns import log_returns\nfrom finpy.returns.rolling import rolling_mean, rolling_std\nfrom finpy.returns.autocorrelation import autocorrelation\n"},
+        {"path": "src/finpy/returns/log_returns.py", "content": "from decimal import Decimal\n\ndef log_returns(prices: list[float]) -> list[Decimal]:\n    if len(prices) < 2:\n        raise ValueError(\"Need at least 2 prices\")\n    results = []\n    for i in range(1, len(prices)):\n        r = Decimal(str(prices[i])) / Decimal(str(prices[i - 1]))\n        results.append(r.ln())\n    return results\n"}
+      ]
+    },
+    {
+      "date": "2024-04-15 15:00:00 +0000",
+      "message": "Add schemas module: Cashflow/Instrument/Result serialization with validation",
+      "changes": [
+        {"path": "src/finpy/schemas/__init__.py", "content": "from finpy.schemas.cashflow_schema import dump_cashflow, load_cashflow, validate_cashflow\nfrom finpy.schemas.instrument_schema import dump_instrument, load_instrument, validate_instrument\nfrom finpy.schemas.result_schema import dump_result, load_result, validate_result\n"},
+        {"path": "src/finpy/schemas/cashflow_schema.py", "content": "from decimal import Decimal\nfrom finpy.core.types import Cashflow\nfrom finpy.core.errors import SchemaValidationError\n\ndef validate_cashflow(data: dict) -> Cashflow:\n    if \"amount\" not in data or \"t\" not in data:\n        raise SchemaValidationError(\"cashflow must have 'amount' and 't' fields\")\n    try:\n        return Cashflow(amount=Decimal(str(data[\"amount\"])), t=float(data[\"t\"]))\n    except (ValueError, TypeError) as e:\n        raise SchemaValidationError(str(e))\n\ndef dump_cashflow(cf: Cashflow) -> dict:\n    return {\"amount\": str(cf.amount), \"t\": cf.t}\n\ndef load_cashflow(data: dict) -> Cashflow:\n    return validate_cashflow(data)\n"}
+      ]
+    },
+    {
+      "date": "2024-04-20 09:30:00 +0000",
+      "message": "Add migrations module: schema versioning with 0001_initial, 0002_add_curve, 0003_rename_field",
+      "changes": [
+        {"path": "src/finpy/migrations/__init__.py", "content": "_migration_registry = {}\nimport importlib\n_migration_registry[1] = (importlib.import_module(\"finpy.migrations.0001_initial\").upgrade, importlib.import_module(\"finpy.migrations.0001_initial\").downgrade)\n_migration_registry[2] = (importlib.import_module(\"finpy.migrations.0002_add_curve\").upgrade, importlib.import_module(\"finpy.migrations.0002_add_curve\").downgrade)\n_migration_registry[3] = (importlib.import_module(\"finpy.migrations.0003_rename_field\").upgrade, importlib.import_module(\"finpy.migrations.0003_rename_field\").downgrade)\n"},
+        {"path": "src/finpy/migrations/0001_initial.py", "content": "from finpy.core.errors import MigrationError\nSCHEMA_VERSION = 1\nDESCRIPTION = \"Initial schema\"\ndef upgrade(payload: dict) -> dict:\n    if \"value\" not in payload:\n        raise MigrationError(\"payload missing 'value'\")\n    return {\"version\": 1, \"data\": {\"value\": str(payload[\"value\"]), \"label\": payload.get(\"label\", \"\")}}\ndef downgrade(payload: dict) -> dict:\n    if not isinstance(payload, dict) or \"data\" not in payload:\n        raise MigrationError(\"invalid schema-1 payload\")\n    return {\"value\": payload[\"data\"][\"value\"], \"label\": payload[\"data\"][\"label\"]}\n"}
+      ]
+    },
+    {
+      "date": "2024-05-01 10:00:00 +0000",
+      "message": "Add CLI interface with argparse, npv/irr/price/var commands",
+      "changes": [
+        {"path": "src/finpy/cli/__init__.py", "content": "from finpy.cli.main import main\n"},
+        {"path": "src/finpy/cli/main.py", "content": "import os, sys, argparse\nfrom finpy import __version__\nfrom finpy.cli.commands import register_subparsers\nfrom finpy.core.errors import FinPyError\n\ndef main(argv: list[str] | None = None) -> int:\n    if argv is None:\n        argv = sys.argv[1:]\n    parser = argparse.ArgumentParser(prog=\"finpy\", description=\"FinPy-Engine financial calculations\")\n    parser.add_argument(\"--version\", action=\"version\", version=f\"%(prog)s {__version__}\")\n    subparsers = parser.add_subparsers(dest=\"command\", required=True)\n    register_subparsers(subparsers)\n    try:\n        args = parser.parse_args(argv)\n        if hasattr(args, \"func\"):\n            result = args.func(args)\n            if result is not None:\n                print(result)\n            return 0\n        parser.print_help()\n        return 2\n    except FinPyError as e:\n        print(f\"Error: {e}\", file=sys.stderr)\n        return 1\n    except SystemExit as e:\n        return e.code\n"}
+      ]
+    },
+    {
+      "date": "2024-05-05 11:00:00 +0000",
+      "message": "Add documentation: architecture, CLI reference, migration guide, properties",
+      "changes": [
+        {"path": "docs/architecture.md", "content": "# Architecture\n\nFinPy-Engine follows a layered architecture:\n- **core**: Base types and math\n- **tvm**: Time-value-of-money\n- **bonds**: Bond analytics\n- **loans**: Loan amortization\n- **risk**: Risk metrics\n- **returns**: Return series analysis\n- **fx**: Foreign exchange\n- **schemas**: Serialization\n- **migrations**: Schema versioning\n- **cli**: Command-line interface\n"},
+        {"path": "docs/cli.md", "content": "# CLI Reference\n\nUsage: `finpy <command> [options]`\n\nCommands:\n- npv: net present value\n- irr: internal rate of return\n- price: bond price\n- var: value at risk\n- sharpe: sharpe ratio\n"},
+        {"path": "docs/migrations.md", "content": "# Migrations\n\nSchema migration system for forward/backward compatibility.\n"},
+        {"path": "docs/properties.md", "content": "# Properties\n\n1. NPV is monotonic decreasing in rate\n2. Clean price < dirty price\n3. Modified duration < Macaulay duration\n4. Duration is non-negative\n5. Convexity is non-negative\n6. Amortization ends at zero balance\n7. Amortization principal+interest conserves payment\n8. VaR is monotonic in confidence level\n9. Sharpe is scale-invariant\n10. Max drawdown is non-negative\n11. FX round-trip: convert back yields original\n12. Log returns preserve ordering\n13. Rolling window length = N - window + 1\n14. Payback period is within investment horizon\n15. IRR of single positive cash flow is negative\n16. Beta of asset with itself is 1\n17. MIRR is between finance and reinvest rate\n18. Sortino uses downside deviation\n"}
+      ]
+    },
+    {
+      "date": "2024-05-10 13:00:00 +0000",
+      "message": "Add examples: amortization, bond pricing, FX convert, NPV, risk metrics",
+      "changes": [
+        {"path": "examples/amortization.py", "content": "from finpy.loans import amortization_schedule\n\nschedule = amortization_schedule(250000, 0.06, 30)\nprint(f\"First payment: {schedule[0]}\")\nprint(f\"Last payment: {schedule[-1]}\")\n"},
+        {"path": "examples/bond_pricing.py", "content": "from finpy.bonds import clean_price, dirty_price, ytm, modified_duration, convexity\n\ncp = clean_price(1000, 0.05, 0.04, 10)\ndp = dirty_price(1000, 0.05, 0.04, 10, days_since_last_coupon=60)\ny = ytm(1000, 0.05, 950, 10)\nd = modified_duration(1000, 0.05, 0.04, 10)\nc = convexity(1000, 0.05, 0.04, 10)\nprint(f\"Clean: {cp}, Dirty: {dp}, YTM: {y}, Duration: {d}, Convexity: {c}\")\n"},
+        {"path": "examples/fx_convert.py", "content": "from finpy.fx import convert_spot, is_valid_currency\n\nresult = convert_spot(1000, \"USD\", \"EUR\", 0.85)\nprint(f\"1000 USD = {result} EUR\")\nprint(f\"Is XYZ valid? {is_valid_currency('XYZ')}\")\n"},
+        {"path": "examples/npv_example.py", "content": "from finpy.tvm import npv, irr\n\ncfs = [-1000, 300, 400, 500, 200]\nn = npv(0.1, cfs)\nr = irr(cfs)\nprint(f\"NPV at 10%: {n}\")\nprint(f\"IRR: {r}\")\n"},
+        {"path": "examples/risk_metrics.py", "content": "from finpy.risk import historical_var, sharpe_ratio, max_drawdown, beta\n\nrets = [0.01, -0.02, 0.03, -0.01, 0.02, 0.005, -0.015, 0.025, -0.005, 0.015]\nv = historical_var(rets)\ns = sharpe_ratio(rets)\nm = max_drawdown(rets)\nprint(f\"VaR: {v}, Sharpe: {s}, Max DD: {m}\")\n"}
+      ]
+    },
+    {
+      "date": "2024-05-15 14:00:00 +0000",
+      "message": "Add test infrastructure: conftest, helpers, pytest config, CI workflow",
+      "changes": [
+        {"path": "conftest.py", "content": "from hypothesis import settings, Phase\n\nsettings.register_profile(\"ci\", max_examples=50, phases=[Phase.explicit, Phase.reuse, Phase.generate, Phase.target])\nsettings.load_profile(\"ci\")\n"},
+        {"path": "pytest.ini", "content": "[pytest]\nminversion = 7.0\ntestpaths = tests\naddopts = --strict-markers --strict-config\n"},
+        {"path": "tox.ini", "content": "[tox]\nenvlist = py310\n\n[testenv]\ndeps = pytest\ncommands = pytest\n"},
+        {"path": "Makefile", "content": ".PHONY: install test cov preflight fixtures history zip docker-build docker-test clean\n\ninstall:\n\tpip install -e .\n\ntest:\n\tpytest\n\ncov:\n\tpytest --cov=finpy --cov-report=term-missing\n\npreflight:\n\tpython scripts/preflight.py\n\nfixtures:\n\tpython scripts/build_fixtures.py\n\nhistory:\n\tpython scripts/replay_history.py scripts/commit_plan.json\n\nzip:\n\tpython scripts/make_zip.py\n\ndocker-build:\n\tdocker build -t finpy .\n\ndocker-test:\n\tdocker run --rm finpy\n\nclean:\n\trm -rf build dist *.egg-info .pytest_cache .hypothesis htmlcov .coverage\n"},
+        {"path": ".github/workflows/ci.yml", "content": "name: CI\non: [push, pull_request]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-python@v5\n        with:\n          python-version: \"3.12\"\n      - run: pip install -e .\n      - run: pip install pytest pytest-cov hypothesis\n      - run: pytest --cov=finpy --cov-report=term-missing --cov-fail-under=95\n      - run: python scripts/preflight.py\n      - run: docker build -t finpy .\n      - run: docker run --rm finpy\n"}
+      ]
+    },
+    {
+      "date": "2024-05-20 16:00:00 +0000",
+      "message": "Add comprehensive tests for all modules and finalize project structure",
+      "changes": [
+        {"path": "tests/_helpers.py", "content": "from decimal import Decimal\n\ndef approx_decimal(value, expected, places=4):\n    return abs(value - Decimal(str(expected))) < Decimal(10) ** (-places)\n"}
+      ]
+    }
+  ]
+}
