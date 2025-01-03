@@ -1,0 +1,143 @@
+from decimal import Decimal
+from typing import Optional
+from finpy.core.types import Cashflow, Instrument, Result
+
+
+def _parse_floats(csv: str) -> list[float]:
+    parts = [p.strip() for p in csv.split(",") if p.strip()]
+    if not parts:
+        raise ValueError("no values to parse")
+    return [float(p) for p in parts]
+
+
+def register_subparsers(subparsers):
+    p = subparsers.add_parser("pv", help="calculate present value")
+    p.add_argument("--rate", type=float, required=True)
+    p.add_argument("--amount", type=float, required=True)
+    p.add_argument("--periods", type=int, required=True)
+    p.set_defaults(func=lambda a: calculate_pv(Decimal(str(a.rate)), [(Decimal(str(a.amount)), float(a.periods))]))
+
+    p = subparsers.add_parser("fv", help="calculate future value")
+    p.add_argument("--pv", type=float, required=True)
+    p.add_argument("--rate", type=float, required=True)
+    p.add_argument("--periods", type=int, required=True)
+    p.add_argument("--mode", type=str, default="annual")
+    p.set_defaults(func=lambda a: calculate(a.pv, a.rate, a.periods, a.mode))
+
+    p = subparsers.add_parser("bond", help="bond price and yield analysis")
+    p.add_argument("--face", type=float, required=True)
+    p.add_argument("--coupon", type=float, required=True)
+    p.add_argument("--ytm", type=float, required=True)
+    p.add_argument("--maturity", type=float, required=True)
+    p.add_argument("--freq", type=int, default=2)
+    p.set_defaults(func=lambda a: bond_analysis(a.face, a.coupon, a.ytm, a.maturity, a.freq))
+
+    p = subparsers.add_parser("loan", help="amortization schedule")
+    p.add_argument("--principal", type=float, required=True)
+    p.add_argument("--rate", type=float, required=True)
+    p.add_argument("--years", type=float, required=True)
+    p.add_argument("--freq", type=int, default=12)
+    p.set_defaults(func=lambda a: schedule(a.principal, a.rate, a.years, a.freq))
+
+    p = subparsers.add_parser("risk", help="risk metrics from returns")
+    p.add_argument("--returns", type=float, nargs="+", required=True)
+    p.set_defaults(func=lambda a: risk_metrics(a.returns))
+
+    p = subparsers.add_parser("fx", help="currency conversion")
+    p.add_argument("--amount", type=float, required=True)
+    p.add_argument("--from", dest="from_curr", type=str, required=True)
+    p.add_argument("--to", type=str, required=True)
+    p.add_argument("--rate", type=float, required=True)
+    p.set_defaults(func=lambda a: convert(a.amount, a.from_curr, a.to, a.rate))
+
+
+def calculate(pv: float, rate: float, n: int, mode: str = "annual") -> Decimal:
+    from finpy.core.compounding import future_value
+    return future_value(Decimal(str(pv)), Decimal(str(rate)), n, mode)
+
+
+def analyze(prices: list[float]) -> dict[str, Decimal]:
+    from finpy.returns.log_returns import total_return, arithmetic_mean, variance, std
+    from decimal import Decimal
+    dec_returns = [Decimal(str(p)) for p in prices]
+    return {
+        "mean": arithmetic_mean(dec_returns),
+        "variance": variance(dec_returns),
+        "std": std(dec_returns),
+        "total": total_return(dec_returns),
+    }
+
+
+def convert(amount: float, from_currency: str, to_currency: str, rate: float) -> Decimal:
+    from finpy.fx.spot import convert_spot
+    return convert_spot(amount, from_currency, to_currency, rate)
+
+
+def schedule(principal: float, annual_rate: float, years: float, payments_per_year: int = 12) -> list[dict[str, Decimal]]:
+    from finpy.loans.schedule import amortization_schedule
+    return amortization_schedule(principal, annual_rate, years, payments_per_year)
+
+
+def bond(face_value: float, coupon_rate: float, ytm_val: float, years_to_maturity: float, payments_per_year: int = 2) -> dict[str, Decimal]:
+    from finpy.bonds.clean_price import clean_price
+    from finpy.bonds.dirty_price import dirty_price
+    from finpy.bonds.duration import macaulay_duration, modified_duration
+    from finpy.bonds.convexity import convexity
+    from decimal import Decimal
+    cp = clean_price(face_value, coupon_rate, ytm_val, years_to_maturity, payments_per_year)
+    dp = dirty_price(face_value, coupon_rate, ytm_val, years_to_maturity, payments_per_year)
+    mac = macaulay_duration(face_value, coupon_rate, ytm_val, years_to_maturity, payments_per_year)
+    mod = modified_duration(face_value, coupon_rate, ytm_val, years_to_maturity, payments_per_year)
+    conv = convexity(face_value, coupon_rate, ytm_val, years_to_maturity, payments_per_year)
+    return {"clean_price": cp, "dirty_price": dp, "macaulay_duration": mac, "modified_duration": mod, "convexity": conv}
+
+
+def bond_analysis(face_value: float, coupon_rate: float, ytm_val: float, years_to_maturity: float, payments_per_year: int = 2) -> dict[str, Decimal]:
+    return bond(face_value, coupon_rate, ytm_val, years_to_maturity, payments_per_year)
+
+
+def calculate_pv(rate: Decimal, cashflows: list[tuple[Decimal, float]]) -> Decimal:
+    from finpy.core.discount import present_value
+    return present_value(cashflows, rate)
+
+
+def compare_rates(rate: float, periods_per_year: int = 12) -> dict[str, Decimal]:
+    from finpy.core.compounding import effective_annual_rate
+    from decimal import Decimal
+    nominal = Decimal(str(rate))
+    ear = effective_annual_rate(nominal, periods_per_year)
+    return {"nominal": nominal, "effective_annual_rate": ear, "periods_per_year": Decimal(periods_per_year)}
+
+
+def loan_summary(principal: float, annual_rate: float, years: float) -> dict[str, Decimal]:
+    from finpy.loans.schedule import monthly_payment, total_interest, amortization_summary
+    pmt = monthly_payment(principal, annual_rate, years)
+    total_int = total_interest(principal, annual_rate, years)
+    summary = amortization_summary(principal, annual_rate, years)
+    return {
+        "monthly_payment": pmt,
+        "total_interest": total_int,
+        "total_paid": summary["total_paid"],
+    }
+
+
+def bond_ytm(price: float, face_value: float, coupon_rate: float, years_to_maturity: float) -> Decimal:
+    from finpy.bonds.ytm import ytm
+    return ytm(price, face_value, coupon_rate, years_to_maturity)
+
+
+def risk_metrics(returns: list[float]) -> dict[str, Decimal]:
+    from finpy.risk.sharpe import sharpe_ratio
+    from finpy.risk.sortino import sortino_ratio
+    from finpy.risk.max_drawdown import max_drawdown
+    from finpy.risk.historical_var import historical_var
+    from decimal import Decimal
+    prices = [100.0]
+    for r in returns:
+        prices.append(prices[-1] * (1 + r))
+    return {
+        "sharpe": sharpe_ratio(returns),
+        "sortino": sortino_ratio(returns),
+        "max_drawdown": max_drawdown(prices),
+        "var_95": historical_var(returns, 0.95),
+    }
