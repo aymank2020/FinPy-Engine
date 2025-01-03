@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\migrations\__init__.py
+# hypothesis_version: 6.152.7
+
+['_migration_registry', 'get_latest_version', 'migrate_to_latest', 'run_migrations', 'version']
