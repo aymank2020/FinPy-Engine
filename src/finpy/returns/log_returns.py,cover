@@ -1,0 +1,199 @@
+> from decimal import Decimal
+> from typing import Optional
+  
+  
+> def log_returns(prices: list[float]) -> list[Decimal]:
+!     if len(prices) < 2:
+!         raise ValueError("Need at least 2 prices")
+!     results = []
+!     for i in range(1, len(prices)):
+!         r = Decimal(str(prices[i])) / Decimal(str(prices[i - 1]))
+!         results.append(r.ln())
+!     return results
+  
+  
+> def simple_returns(prices: list[float]) -> list[Decimal]:
+!     if len(prices) < 2:
+!         raise ValueError("Need at least 2 prices")
+!     results = []
+!     for i in range(1, len(prices)):
+!         r = (Decimal(str(prices[i])) - Decimal(str(prices[i - 1]))) / Decimal(str(prices[i - 1]))
+!         results.append(r)
+!     return results
+  
+  
+> def cumulative_return(prices: list[float]) -> Decimal:
+!     if len(prices) < 2:
+!         raise ValueError("Need at least 2 prices")
+!     return (Decimal(str(prices[-1])) - Decimal(str(prices[0]))) / Decimal(str(prices[0]))
+  
+  
+> def annualized_volatility(returns: list[float], periods_per_year: int = 252) -> Decimal:
+!     if len(returns) < 2:
+!         raise ValueError("Need at least 2 returns")
+!     import math
+!     n = len(returns)
+!     mean_ret = sum(returns) / n
+!     variance = sum((r - mean_ret) ** 2 for r in returns) / (n - 1)
+!     std_dev = math.sqrt(variance)
+!     return Decimal(str(std_dev)) * Decimal(str(math.sqrt(periods_per_year)))
+  
+  
+> def total_return(returns: list[Decimal]) -> Decimal:
+!     if not returns:
+!         raise ValueError("returns list must be non-empty")
+!     product = Decimal(1)
+!     for r in returns:
+!         product *= (Decimal(1) + r)
+!     return product - Decimal(1)
+  
+  
+> def arithmetic_mean(returns: list[Decimal]) -> Decimal:
+!     if not returns:
+!         raise ValueError("returns list must be non-empty")
+!     return sum(returns, Decimal(0)) / Decimal(len(returns))
+  
+  
+> def geometric_mean(returns: list[Decimal]) -> Decimal:
+!     if not returns:
+!         raise ValueError("returns list must be non-empty")
+!     product = Decimal(1)
+!     for r in returns:
+!         product *= (Decimal(1) + r)
+!     n = Decimal(len(returns))
+!     return product ** (Decimal(1) / n) - Decimal(1)
+  
+  
+> def variance(returns: list[Decimal], ddof: int = 1) -> Decimal:
+!     if len(returns) < 2:
+!         raise ValueError("Need at least 2 returns")
+!     mean = arithmetic_mean(returns)
+!     sq_dev = sum(((r - mean) ** 2 for r in returns), Decimal(0))
+!     return sq_dev / Decimal(len(returns) - ddof)
+  
+  
+> def std(returns: list[Decimal], ddof: int = 1) -> Decimal:
+!     return variance(returns, ddof=ddof).sqrt()
+  
+  
+> def skewness(returns: list[Decimal]) -> Decimal:
+!     if len(returns) < 3:
+!         raise ValueError("Need at least 3 returns")
+!     mean = arithmetic_mean(returns)
+!     s = std(returns, ddof=0)
+!     if s == 0:
+!         return Decimal(0)
+!     n = Decimal(len(returns))
+!     third = sum(((r - mean) ** 3 for r in returns), Decimal(0))
+!     return (third / n) / (s ** 3)
+  
+  
+> def kurtosis(returns: list[Decimal]) -> Decimal:
+!     if len(returns) < 4:
+!         raise ValueError("Need at least 4 returns")
+!     mean = arithmetic_mean(returns)
+!     s = std(returns, ddof=0)
+!     if s == 0:
+!         return Decimal(0)
+!     n = Decimal(len(returns))
+!     fourth = sum(((r - mean) ** 4 for r in returns), Decimal(0))
+!     return (fourth / n) / (s ** 4) - Decimal(3)
+  
+  
+> def semivariance(returns: list[Decimal], target: Decimal = Decimal(0)) -> Decimal:
+!     if len(returns) < 2:
+!         raise ValueError("Need at least 2 returns")
+!     downside = [r for r in returns if r < target]
+!     if not downside:
+!         return Decimal(0)
+!     sq_dev = sum(((r - target) ** 2 for r in downside), Decimal(0))
+!     return sq_dev / Decimal(len(downside))
+  
+  
+> def downside_std(returns: list[Decimal], target: Decimal = Decimal(0)) -> Decimal:
+!     return semivariance(returns, target).sqrt()
+  
+  
+> def max_drawdown(prices: list[float]) -> Decimal:
+!     if len(prices) < 2:
+!         raise ValueError("Need at least 2 prices")
+!     peak = Decimal(str(prices[0]))
+!     max_dd = Decimal(0)
+!     for p in prices:
+!         val = Decimal(str(p))
+!         if val > peak:
+!             peak = val
+!         dd = (peak - val) / peak
+!         if dd > max_dd:
+!             max_dd = dd
+!     return max_dd
+  
+  
+> def calmar_ratio(returns: list[Decimal], prices: list[float], periods_per_year: int = 252) -> Decimal:
+!     ann_ret = annualized_return(total_return(returns), Decimal(len(returns)) / Decimal(periods_per_year))
+!     mdd = max_drawdown(prices)
+!     if mdd == 0:
+!         return Decimal(0)
+!     return ann_ret / mdd
+  
+  
+> def annualized_return(total_ret: Decimal, years: Decimal) -> Decimal:
+!     if total_ret <= Decimal(-1):
+!         raise ValueError("total_ret must be > -1")
+!     if years <= 0:
+!         raise ValueError("years must be positive")
+!     one = Decimal(1)
+!     return (one + total_ret) ** (one / years) - one
+  
+  
+> def annualized_std(returns: list[Decimal], periods_per_year: int = 252) -> Decimal:
+!     return std(returns) * Decimal(periods_per_year).sqrt()
+  
+  
+> def information_ratio(returns: list[Decimal], benchmark_returns: list[Decimal]) -> Decimal:
+!     if len(returns) != len(benchmark_returns):
+!         raise ValueError("returns and benchmark must have same length")
+!     if len(returns) < 2:
+!         raise ValueError("Need at least 2 observations")
+!     diff = [r - b for r, b in zip(returns, benchmark_returns)]
+!     excess_mean = sum(diff, Decimal(0)) / Decimal(len(diff))
+!     excess_std = std(diff)
+!     if excess_std == 0:
+!         return Decimal(0)
+!     return excess_mean / excess_std
+  
+  
+> def tracking_error(returns: list[Decimal], benchmark_returns: list[Decimal]) -> Decimal:
+!     if len(returns) != len(benchmark_returns):
+!         raise ValueError("returns and benchmark must have same length")
+!     if len(returns) < 2:
+!         raise ValueError("Need at least 2 observations")
+!     diff = [r - b for r, b in zip(returns, benchmark_returns)]
+!     return std(diff)
+  
+  
+> def gain_loss_ratio(returns: list[Decimal]) -> Decimal:
+!     gains = [r for r in returns if r > 0]
+!     losses = [-r for r in returns if r < 0]
+!     if not gains or not losses:
+!         return Decimal(0)
+!     avg_gain = sum(gains, Decimal(0)) / Decimal(len(gains))
+!     avg_loss = sum(losses, Decimal(0)) / Decimal(len(losses))
+!     if avg_loss == 0:
+!         return Decimal(0)
+!     return avg_gain / avg_loss
+  
+  
+> def ulcer_index(prices: list[float]) -> Decimal:
+!     if len(prices) < 2:
+!         raise ValueError("Need at least 2 prices")
+!     peak = Decimal(str(prices[0]))
+!     squared_drawdowns = []
+!     for p in prices:
+!         val = Decimal(str(p))
+!         if val > peak:
+!             peak = val
+!         dd = (peak - val) / peak
+!         squared_drawdowns.append(dd ** 2)
+!     mean_sq = sum(squared_drawdowns, Decimal(0)) / Decimal(len(squared_drawdowns))
+!     return mean_sq.sqrt()
