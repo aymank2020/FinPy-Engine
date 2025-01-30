@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\fx\__init__.py
+# hypothesis_version: 6.152.7
+
+['add_currency', 'convert_as_of', 'convert_bid_ask', 'convert_spot', 'cross_rate', 'currency_name', 'currency_symbol', 'inverse_rate', 'is_valid_currency', 'latest_rate', 'list_currencies', 'rate_history', 'rate_mean', 'rate_min_max', 'rate_range', 'rate_volatility']
