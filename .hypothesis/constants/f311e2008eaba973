@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\core\types.py
+# hypothesis_version: 6.152.7
+
+[10000, '/', 'Cashflow', 'FXRate', 'Instrument', 'MarketData', 'OrderBook', 'Portfolio', 'Position', 'Result', 'ReturnSeries', 'ScheduleRow', 'TimeSeries', 'Trade', 'YieldCurve', 'amount', 'annual', 'as_of', 'asks', 'balance', 'bids', 'buy', 'cash', 'commission', 'continuous', 'cost_basis', 'coupon_rate', 'currency_pair', 'current_price', 'dates', 'face_value', 'interest', 'label', 'maturity_years', 'name', 'payment', 'payments_per_year', 'period', 'positions', 'price', 'principal', 'quantity', 'rate', 'rates', 'sell', 'symbol', 't', 'timestamp', 'trade_date', 'trade_id', 'trade_type', 'value', 'values', 'volume']
