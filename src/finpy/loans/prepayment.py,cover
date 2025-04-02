@@ -1,0 +1,105 @@
+> from decimal import Decimal, ROUND_HALF_UP
+> from typing import Optional
+  
+  
+> def apply_prepayment(principal: float, annual_rate: float, years: float, prepayment_amount: float, payment_number: int, payments_per_year: int = 12, *, ndigits: Optional[int] = None) -> dict[str, Decimal]:
+!     from finpy.loans.schedule import outstanding_balance, total_interest
+!     bal_before = outstanding_balance(principal, annual_rate, years, payment_number, payments_per_year)
+!     prepay = Decimal(str(prepayment_amount))
+!     if prepay > bal_before:
+!         prepay = bal_before
+!     bal_after = bal_before - prepay
+!     result = {"balance_before": bal_before, "prepayment": prepay, "balance_after": bal_after}
+!     if ndigits is not None:
+!         result = {k: v.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP) for k, v in result.items()}
+!     return result
+  
+  
+> def apply_lump_sum(principal: float, annual_rate: float, years: float, lump_sum: float, payment_number: int, payments_per_year: int = 12, *, ndigits: Optional[int] = None) -> dict[str, Decimal]:
+!     from finpy.loans.schedule import outstanding_balance, total_interest
+!     orig_interest = total_interest(principal, annual_rate, years, payments_per_year, ndigits=ndigits)
+!     bal = outstanding_balance(principal, annual_rate, years, payment_number, payments_per_year)
+!     lump = Decimal(str(lump_sum))
+!     if lump > bal:
+!         lump = bal
+!     new_bal = bal - lump
+!     remaining_payments = int(years * payments_per_year) - payment_number
+!     if new_bal <= 0:
+!         new_interest = Decimal(0)
+!     else:
+!         from finpy.loans.schedule import total_interest as ti
+!         remaining_years = remaining_payments / payments_per_year
+!         new_interest = ti(float(new_bal), annual_rate, remaining_years, payments_per_year, ndigits=ndigits)
+!     interest_saved = orig_interest - new_interest
+!     result = {
+!         "original_balance": bal,
+!         "lump_sum": lump,
+!         "new_balance": new_bal,
+!         "interest_saved": interest_saved,
+!     }
+!     if ndigits is not None:
+!         result = {k: v.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP) for k, v in result.items()}
+!     return result
+  
+  
+> def recast_payment(principal: float, annual_rate: float, years: float, prepayment_amount: float, payment_number: int, payments_per_year: int = 12, *, ndigits: Optional[int] = None) -> Decimal:
+!     from finpy.loans.schedule import outstanding_balance
+!     bal = outstanding_balance(principal, annual_rate, years, payment_number, payments_per_year)
+!     prepay = Decimal(str(prepayment_amount))
+!     if prepay > bal:
+!         prepay = bal
+!     new_bal = bal - prepay
+!     remaining_payments = int(years * payments_per_year) - payment_number
+!     if remaining_payments <= 0:
+!         return Decimal(0)
+!     r = Decimal(str(annual_rate)) / Decimal(str(payments_per_year))
+!     one = Decimal(1)
+!     if r == 0:
+!         new_pmt = new_bal / Decimal(remaining_payments)
+!     else:
+!         new_pmt = new_bal * r * (one + r) ** Decimal(remaining_payments) / ((one + r) ** Decimal(remaining_payments) - one)
+!     if ndigits is not None:
+!         new_pmt = new_pmt.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return new_pmt
+  
+  
+> def extra_payment_schedule(principal: float, annual_rate: float, years: float, extra: float, payments_per_year: int = 12, *, ndigits: Optional[int] = None) -> dict[str, Decimal]:
+!     from finpy.loans.schedule import amortization_schedule, total_interest
+!     orig_interest = total_interest(principal, annual_rate, years, payments_per_year, ndigits=ndigits)
+!     n = int(years * payments_per_year)
+!     r = Decimal(str(annual_rate)) / Decimal(str(payments_per_year))
+!     pv = Decimal(str(principal))
+!     extra_amt = Decimal(str(extra))
+!     one = Decimal(1)
+!     if r == 0:
+!         reg_pmt = pv / Decimal(n)
+!     else:
+!         reg_pmt = pv * r * (one + r) ** n / ((one + r) ** n - one)
+!     actual_pmt = reg_pmt + extra_amt
+!     balance = pv
+!     periods = 0
+!     total_paid = Decimal(0)
+!     while balance > 0 and periods < 1000:
+!         periods += 1
+!         interest = balance * r
+!         principal_part = actual_pmt - interest
+!         if principal_part >= balance:
+!             principal_part = balance
+!             total_paid += principal_part + interest
+!             balance = Decimal(0)
+!         else:
+!             balance -= principal_part
+!             total_paid += actual_pmt
+!     new_interest = total_paid - Decimal(str(principal))
+!     result = {
+!         "original_payment": reg_pmt,
+!         "new_payment": actual_pmt,
+!         "original_periods": Decimal(n),
+!         "new_periods": Decimal(periods),
+!         "original_interest": orig_interest,
+!         "new_interest": new_interest,
+!         "interest_saved": orig_interest - new_interest,
+!     }
+!     if ndigits is not None:
+!         result = {k: v.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP) for k, v in result.items()}
+!     return result

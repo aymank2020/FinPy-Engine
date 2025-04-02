@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\migrations\0003_rename_field.py
+# hypothesis_version: 6.152.7
+
+['amount', 'data', 'value', 'version']
