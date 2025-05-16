@@ -1,0 +1,192 @@
+> from decimal import Decimal
+> from typing import Optional
+  
+  
+> def discount_factor(rate: Decimal, t: float, mode: str = "annual") -> Decimal:
+!     r = Decimal(str(rate))
+!     one = Decimal(1)
+!     n = Decimal(str(t))
+!     if mode == "annual":
+!         return (one + r) ** (-n)
+!     elif mode == "semi-annual":
+!         return (one + r / 2) ** (-2 * n)
+!     elif mode == "quarterly":
+!         return (one + r / 4) ** (-4 * n)
+!     elif mode == "monthly":
+!         return (one + r / 12) ** (-12 * n)
+!     elif mode == "weekly":
+!         return (one + r / 52) ** (-52 * n)
+!     elif mode == "daily":
+!         return (one + r / 365) ** (-365 * n)
+!     elif mode == "continuous":
+!         return (-r * n).exp()
+!     elif mode == "money-market":
+!         return one / (one + r * n)
+!     elif mode == "bond-basis":
+!         return one / (one + r * n / Decimal(365))
+!     else:
+!         raise ValueError(f"unknown mode: {mode}")
+  
+  
+> def present_value_of_flow(amount: Decimal, t: float, rate: Decimal, mode: str = "annual") -> Decimal:
+!     return amount * discount_factor(rate, t, mode)
+  
+  
+> def present_value(cashflows: list[tuple[Decimal, float]], rate: Decimal, mode: str = "annual") -> Decimal:
+!     total = Decimal(0)
+!     for amount, t in cashflows:
+!         total += present_value_of_flow(amount, t, rate, mode)
+!     return total
+  
+  
+> def future_value_of_flow(amount: Decimal, t: float, rate: Decimal, mode: str = "annual") -> Decimal:
+!     from finpy.core.compounding import compound
+!     return amount * compound(rate, int(t), mode) if t == int(t) else amount * (Decimal(1) + Decimal(str(rate))) ** Decimal(str(t))
+  
+  
+> def discount_yield(price: Decimal, face_value: Decimal, days_to_maturity: int, days_year: int = 360) -> Decimal:
+!     if days_to_maturity <= 0:
+!         raise ValueError(f"days_to_maturity must be positive, got {days_to_maturity}")
+!     if price <= 0 or face_value <= 0:
+!         raise ValueError(f"price and face_value must be positive")
+!     return (face_value - price) / face_value * Decimal(days_year) / Decimal(days_to_maturity)
+  
+  
+> def money_market_yield(discount_yield_val: Decimal, days_to_maturity: int, days_year: int = 360) -> Decimal:
+!     if days_to_maturity <= 0:
+!         raise ValueError(f"days_to_maturity must be positive, got {days_to_maturity}")
+!     d = Decimal(str(discount_yield_val))
+!     t = Decimal(days_to_maturity) / Decimal(days_year)
+!     return d / (Decimal(1) - d * t)
+  
+  
+> def bond_equivalent_yield(price: Decimal, face_value: Decimal, days_to_maturity: int) -> Decimal:
+!     if days_to_maturity <= 0:
+!         raise ValueError(f"days_to_maturity must be positive, got {days_to_maturity}")
+!     if price <= 0 or face_value <= 0:
+!         raise ValueError(f"price and face_value must be positive")
+!     return (face_value - price) / price * Decimal(365) / Decimal(days_to_maturity)
+  
+  
+> def yield_to_maturity(price: Decimal, face_value: Decimal, coupon: Decimal, periods: int, guess: Decimal = Decimal(0.05)) -> Decimal:
+!     if price <= 0 or face_value <= 0:
+!         raise ValueError("price and face_value must be positive")
+!     if periods <= 0:
+!         raise ValueError("periods must be positive")
+!     rate = guess
+!     for _ in range(1000):
+!         pv = Decimal(0)
+!         for i in range(1, periods + 1):
+!             pv += coupon / ((Decimal(1) + rate) ** i)
+!         pv += face_value / ((Decimal(1) + rate) ** periods)
+!         diff = pv - price
+!         if abs(diff) < Decimal(1e-10):
+!             return rate
+!         dpv = Decimal(0)
+!         for i in range(1, periods + 1):
+!             dpv += -i * coupon / ((Decimal(1) + rate) ** (i + 1))
+!         dpv += -periods * face_value / ((Decimal(1) + rate) ** (periods + 1))
+!         if dpv == 0:
+!             raise ValueError("derivative zero in ytm calculation")
+!         rate = rate - diff / dpv
+!         if rate <= Decimal(0):
+!             rate = Decimal(1e-10)
+!     raise ValueError("ytm did not converge")
+  
+  
+> def current_yield(annual_coupon: Decimal, price: Decimal) -> Decimal:
+!     if price <= 0:
+!         raise ValueError(f"price must be positive, got {price}")
+!     return annual_coupon / price
+  
+  
+> def macaulay_duration(cashflows: list[tuple[Decimal, float]], ytm: Decimal) -> Decimal:
+!     pv_total = Decimal(0)
+!     weighted_time = Decimal(0)
+!     for amount, t in cashflows:
+!         df = discount_factor(ytm, t, "annual")
+!         pv = amount * df
+!         pv_total += pv
+!         weighted_time += pv * Decimal(str(t))
+!     if pv_total == 0:
+!         raise ValueError("present value is zero, cannot compute duration")
+!     return weighted_time / pv_total
+  
+  
+> def modified_duration(macaulay_dur: Decimal, periods_per_year: int = 1) -> Decimal:
+!     return macaulay_dur / (Decimal(1) + Decimal(str(periods_per_year)))
+  
+  
+> def convexity(cashflows: list[tuple[Decimal, float]], ytm: Decimal) -> Decimal:
+!     total = Decimal(0)
+!     pv_total = Decimal(0)
+!     for amount, t in cashflows:
+!         df = discount_factor(ytm, t, "annual")
+!         pv = amount * df
+!         pv_total += pv
+!         total += pv * Decimal(str(t)) * (Decimal(str(t)) + Decimal(1))
+!     if pv_total == 0:
+!         raise ValueError("present value is zero, cannot compute convexity")
+!     return total / (pv_total * (Decimal(1) + ytm) ** 2)
+  
+  
+> def zero_coupon_rate(df_val: Decimal, t: float, mode: str = "annual") -> Decimal:
+!     if df_val <= 0 or df_val > 1:
+!         raise ValueError(f"discount factor must be in (0, 1], got {df_val}")
+!     if t <= 0:
+!         raise ValueError(f"time must be positive, got {t}")
+!     one = Decimal(1)
+!     n = Decimal(str(t))
+!     if mode == "annual":
+!         return (one / df_val) ** (one / n) - one
+!     elif mode == "continuous":
+!         return -df_val.ln() / n
+!     elif mode == "semi-annual":
+!         return Decimal(2) * ((one / df_val) ** (one / (Decimal(2) * n)) - one)
+!     elif mode == "money-market":
+!         return (one / df_val - one) / n
+!     else:
+!         raise ValueError(f"unknown mode: {mode}")
+  
+  
+> def annuity_factor(rate: Decimal, nper: int, mode: str = "annual") -> Decimal:
+!     r = Decimal(str(rate))
+!     n = Decimal(str(nper))
+!     one = Decimal(1)
+!     if r == 0:
+!         return Decimal(nper)
+!     if mode == "annual":
+!         return (one - (one + r) ** (-n)) / r
+!     elif mode == "continuous":
+!         return (one - (-r * n).exp()) / r
+!     else:
+!         raise ValueError(f"unknown mode: {mode}")
+  
+  
+> def sinking_factor(rate: Decimal, nper: int) -> Decimal:
+!     r = Decimal(str(rate))
+!     n = Decimal(str(nper))
+!     one = Decimal(1)
+!     if r == 0:
+!         return Decimal(1) / Decimal(nper)
+!     return r / ((one + r) ** n - one)
+  
+  
+> def capital_recovery_factor(rate: Decimal, nper: int) -> Decimal:
+!     r = Decimal(str(rate))
+!     n = Decimal(str(nper))
+!     one = Decimal(1)
+!     if r == 0:
+!         return Decimal(1) / Decimal(nper)
+!     return r * (one + r) ** n / ((one + r) ** n - one)
+  
+  
+> def forward_rate(spot_short: Decimal, spot_long: Decimal, t_short: float, t_long: float) -> Decimal:
+!     if t_long <= t_short:
+!         raise ValueError("t_long must be greater than t_short")
+!     if t_short < 0:
+!         raise ValueError("t_short must be non-negative")
+!     num = (Decimal(1) + spot_long) ** Decimal(str(t_long))
+!     den = (Decimal(1) + spot_short) ** Decimal(str(t_short))
+!     period = t_long - t_short
+!     return (num / den) ** (Decimal(1) / Decimal(str(period))) - Decimal(1)
