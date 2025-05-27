@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\loans\__init__.py
+# hypothesis_version: 6.152.7
+
+['amortization_summary', 'apply_lump_sum', 'apply_prepayment', 'apr_from_apy', 'apy_from_apr', 'balloon_payment', 'loan_payoff_time', 'monthly_payment', 'outstanding_balance', 'rate_comparison', 'recast_payment', 'refinance_breakeven', 'refinance_irr', 'refinance_npv', 'total_interest']
