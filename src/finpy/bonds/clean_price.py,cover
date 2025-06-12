@@ -1,0 +1,127 @@
+> from decimal import Decimal, ROUND_HALF_UP
+> from typing import Optional
+  
+  
+> def clean_price(face_value: float, coupon_rate: float, ytm: float, years_to_maturity: float, payments_per_year: int = 2, *, ndigits: Optional[int] = None) -> Decimal:
+!     n = int(years_to_maturity * payments_per_year)
+!     r = Decimal(str(ytm)) / Decimal(str(payments_per_year))
+!     c = Decimal(str(coupon_rate)) / Decimal(str(payments_per_year))
+!     fv = Decimal(str(face_value))
+!     one = Decimal(1)
+!     factor = (one + r) ** n
+!     coupon_pmt = c * fv
+!     price = coupon_pmt * (one - (one + r) ** (-n)) / r + fv / factor
+!     if ndigits is not None:
+!         price = price.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return price
+  
+  
+> def clean_price_from_ytm_bootstrap(face_value: float, coupon_rate: float, zero_rates: list[float], years_to_maturity: float, payments_per_year: int = 2, *, ndigits: Optional[int] = None) -> Decimal:
+!     n = int(years_to_maturity * payments_per_year)
+!     c = Decimal(str(coupon_rate)) / Decimal(str(payments_per_year))
+!     fv = Decimal(str(face_value))
+!     one = Decimal(1)
+!     price = Decimal(0)
+!     for t in range(1, n + 1):
+!         if t <= len(zero_rates):
+!             rate = Decimal(str(zero_rates[t - 1]))
+!         else:
+!             rate = Decimal(str(zero_rates[-1])) if zero_rates else Decimal(str(coupon_rate))
+!         r = rate / Decimal(str(payments_per_year))
+!         cf = c * fv if t < n else c * fv + fv
+!         price += cf / (one + r) ** Decimal(str(t))
+!     if ndigits is not None:
+!         price = price.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return price
+  
+  
+> def price_yield_relationship(face_value: float, coupon_rate: float, ytm_range: list[float], years_to_maturity: float, payments_per_year: int = 2, *, ndigits: Optional[int] = None) -> list[dict[str, Decimal]]:
+!     results = []
+!     for y in ytm_range:
+!         n = int(years_to_maturity * payments_per_year)
+!         r = Decimal(str(y)) / Decimal(str(payments_per_year))
+!         c = Decimal(str(coupon_rate)) / Decimal(str(payments_per_year))
+!         fv = Decimal(str(face_value))
+!         one = Decimal(1)
+!         factor = (one + r) ** n
+!         coupon_pmt = c * fv
+!         p = coupon_pmt * (one - (one + r) ** (-n)) / r + fv / factor
+!         results.append({"ytm": Decimal(str(y)), "price": p})
+!     if ndigits is not None:
+!         results = [{k: v.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP) for k, v in r.items()} for r in results]
+!     return results
+  
+  
+> def clean_price_from_discount_factors(face_value: float, coupon_rate: float, discount_factors: list[float], payments_per_year: int = 2, *, ndigits: Optional[int] = None) -> Decimal:
+!     c = Decimal(str(coupon_rate)) / Decimal(str(payments_per_year))
+!     fv = Decimal(str(face_value))
+!     price = Decimal(0)
+!     n = len(discount_factors)
+!     for t in range(1, n + 1):
+!         df = Decimal(str(discount_factors[t - 1]))
+!         cf = c * fv if t < n else c * fv + fv
+!         price += cf * df
+!     if ndigits is not None:
+!         price = price.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return price
+  
+  
+> def clean_price_zero_coupon(face_value: float, ytm: float, years_to_maturity: float, payments_per_year: int = 2, *, ndigits: Optional[int] = None) -> Decimal:
+!     n = int(years_to_maturity * payments_per_year)
+!     r = Decimal(str(ytm)) / Decimal(str(payments_per_year))
+!     fv = Decimal(str(face_value))
+!     one = Decimal(1)
+!     price = fv / (one + r) ** n
+!     if ndigits is not None:
+!         price = price.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return price
+  
+  
+> def clean_price_perpetuity(coupon_per_period: float, ytm: float, payments_per_year: int = 2, *, ndigits: Optional[int] = None) -> Decimal:
+!     r = Decimal(str(ytm)) / Decimal(str(payments_per_year))
+!     pmt = Decimal(str(coupon_per_period))
+!     if r == 0:
+!         return Decimal("Infinity")
+!     price = pmt / r
+!     if ndigits is not None:
+!         price = price.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return price
+  
+  
+> def clean_price_fractional_period(face_value: float, coupon_rate: float, ytm: float, years_to_maturity: float, payments_per_year: int = 2, fractional_period_ratio: float = 0.0, *, ndigits: Optional[int] = None) -> Decimal:
+!     n = int(years_to_maturity * payments_per_year) + 1
+!     w = Decimal(str(fractional_period_ratio))
+!     r = Decimal(str(ytm)) / Decimal(str(payments_per_year))
+!     c = Decimal(str(coupon_rate)) / Decimal(str(payments_per_year))
+!     fv = Decimal(str(face_value))
+!     one = Decimal(1)
+!     coupon_pmt = c * fv
+!     price = Decimal(0)
+!     for t in range(1, n):
+!         cf = coupon_pmt if t < n - 1 else coupon_pmt + fv
+!         price += cf / (one + r) ** (Decimal(str(t)) - one + w)
+!     if ndigits is not None:
+!         price = price.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return price
+  
+  
+> def clean_price_odd_first_period(face_value: float, coupon_rate: float, ytm: float, years_to_maturity: float, payments_per_year: int = 2, days_in_odd_period: int = 0, days_in_normal_period: int = 182, *, ndigits: Optional[int] = None) -> Decimal:
+!     n = int(years_to_maturity * payments_per_year)
+!     r = Decimal(str(ytm)) / Decimal(str(payments_per_year))
+!     c = Decimal(str(coupon_rate)) / Decimal(str(payments_per_year))
+!     fv = Decimal(str(face_value))
+!     one = Decimal(1)
+!     coupon_pmt = c * fv
+!     if days_in_normal_period <= 0:
+!         days_in_normal_period = 182
+!     odd_ratio = Decimal(str(days_in_odd_period)) / Decimal(str(days_in_normal_period))
+!     price = Decimal(0)
+!     for t in range(1, n + 1):
+!         cf = coupon_pmt if t < n else coupon_pmt + fv
+!         if t == 1:
+!             price += cf / (one + r) ** odd_ratio
+!         else:
+!             price += cf / (one + r) ** (Decimal(str(t - 1)) + odd_ratio)
+!     if ndigits is not None:
+!         price = price.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return price
