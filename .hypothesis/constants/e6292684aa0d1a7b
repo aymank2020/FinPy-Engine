@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\cli\commands.py
+# hypothesis_version: 6.152.7
+
+[0.95, 100.0, '+', ',', '--amount', '--coupon', '--face', '--freq', '--from', '--maturity', '--mode', '--periods', '--principal', '--pv', '--rate', '--returns', '--to', '--years', '--ytm', 'annual', 'bond', 'clean_price', 'convexity', 'currency conversion', 'dirty_price', 'from_curr', 'fv', 'fx', 'loan', 'macaulay_duration', 'max_drawdown', 'mean', 'modified_duration', 'monthly_payment', 'no values to parse', 'nominal', 'periods_per_year', 'pv', 'risk', 'sharpe', 'sortino', 'std', 'total', 'total_interest', 'total_paid', 'var_95', 'variance']
