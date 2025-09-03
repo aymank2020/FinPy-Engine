@@ -1,0 +1,853 @@
+> from dataclasses import dataclass, field, asdict
+> from decimal import Decimal
+> from typing import Optional, Any
+> from datetime import date, datetime
+  
+> FXHistory = dict[str, dict[str, Decimal]]
+  
+  
+> @dataclass(frozen=True, slots=True)
+> class Cashflow:
+>     amount: Decimal
+>     t: float
+  
+>     def __post_init__(self):
+!         if self.t < 0:
+!             raise ValueError(f"time must be non-negative, got {self.t}")
+  
+>     def __repr__(self):
+!         return f"Cashflow(amount={self.amount}, t={self.t})"
+  
+>     def __eq__(self, other):
+!         if not isinstance(other, Cashflow):
+!             return NotImplemented
+!         return self.amount == other.amount and self.t == other.t
+  
+>     def __hash__(self):
+!         return hash((self.amount, self.t))
+  
+>     def to_dict(self) -> dict[str, Any]:
+!         return {"amount": str(self.amount), "t": self.t}
+  
+>     @classmethod
+>     def from_dict(cls, data: dict[str, Any]) -> "Cashflow":
+!         return cls(amount=Decimal(str(data["amount"])), t=float(data["t"]))
+  
+>     def discounted(self, rate: Decimal, mode: str = "annual") -> Decimal:
+!         from finpy.core.discount import present_value_of_flow
+!         return present_value_of_flow(self.amount, self.t, rate, mode)
+  
+>     def is_zero(self) -> bool:
+!         return self.amount == Decimal(0)
+  
+  
+> @dataclass(frozen=True, slots=True)
+> class Instrument:
+>     face_value: Decimal
+>     coupon_rate: Decimal
+>     maturity_years: float
+>     payments_per_year: int = 2
+  
+>     def __post_init__(self):
+!         if self.face_value <= 0:
+!             raise ValueError(f"face_value must be positive, got {self.face_value}")
+!         if self.coupon_rate < 0:
+!             raise ValueError(f"coupon_rate must be non-negative, got {self.coupon_rate}")
+!         if self.maturity_years <= 0:
+!             raise ValueError(f"maturity_years must be positive, got {self.maturity_years}")
+!         if self.payments_per_year not in (1, 2, 4, 12):
+!             raise ValueError(f"payments_per_year must be 1, 2, 4, or 12, got {self.payments_per_year}")
+  
+>     def __repr__(self):
+!         return (f"Instrument(face_value={self.face_value}, coupon_rate={self.coupon_rate}, "
+!                 f"maturity_years={self.maturity_years}, payments_per_year={self.payments_per_year})")
+  
+>     def __eq__(self, other):
+!         if not isinstance(other, Instrument):
+!             return NotImplemented
+!         return (self.face_value == other.face_value and self.coupon_rate == other.coupon_rate
+!                 and self.maturity_years == other.maturity_years
+!                 and self.payments_per_year == other.payments_per_year)
+  
+>     def __hash__(self):
+!         return hash((self.face_value, self.coupon_rate, self.maturity_years, self.payments_per_year))
+  
+>     def to_dict(self) -> dict[str, Any]:
+!         return {
+!             "face_value": str(self.face_value),
+!             "coupon_rate": str(self.coupon_rate),
+!             "maturity_years": self.maturity_years,
+!             "payments_per_year": self.payments_per_year,
+!         }
+  
+>     @classmethod
+>     def from_dict(cls, data: dict[str, Any]) -> "Instrument":
+!         return cls(
+!             face_value=Decimal(str(data["face_value"])),
+!             coupon_rate=Decimal(str(data["coupon_rate"])),
+!             maturity_years=float(data["maturity_years"]),
+!             payments_per_year=int(data.get("payments_per_year", 2)),
+!         )
+  
+>     def coupon_amount(self) -> Decimal:
+!         return self.face_value * self.coupon_rate / Decimal(str(self.payments_per_year))
+  
+>     def total_payments(self) -> int:
+!         return int(self.maturity_years * self.payments_per_year)
+  
+>     def cashflows(self) -> list[Cashflow]:
+!         flows = []
+!         n = self.total_payments()
+!         coupon = self.coupon_amount()
+!         for i in range(1, n + 1):
+!             t_val = i / self.payments_per_year
+!             flows.append(Cashflow(amount=coupon, t=t_val))
+!         flows[-1] = Cashflow(amount=coupon + self.face_value, t=n / self.payments_per_year)
+!         return flows
+  
+  
+> @dataclass(frozen=True, slots=True)
+> class YieldCurve:
+>     rates: dict[float, Decimal]
+  
+>     def __post_init__(self):
+!         if not self.rates:
+!             raise ValueError("rates dict must be non-empty")
+!         tenors = sorted(self.rates.keys())
+!         for i in range(1, len(tenors)):
+!             if self.rates[tenors[i]] < self.rates[tenors[i - 1]]:
+!                 pass
+  
+>     def __repr__(self):
+!         return f"YieldCurve(rates={self.rates})"
+  
+>     def __eq__(self, other):
+!         if not isinstance(other, YieldCurve):
+!             return NotImplemented
+!         return self.rates == other.rates
+  
+>     def __hash__(self):
+!         return hash(tuple(sorted(self.rates.items())))
+  
+>     def to_dict(self) -> dict[str, Any]:
+!         return {"rates": {str(k): str(v) for k, v in self.rates.items()}}
+  
+>     @classmethod
+>     def from_dict(cls, data: dict[str, Any]) -> "YieldCurve":
+!         rates = {float(k): Decimal(str(v)) for k, v in data["rates"].items()}
+!         return cls(rates=rates)
+  
+>     def interpolate(self, t: float) -> Decimal:
+!         tenors = sorted(self.rates.keys())
+!         if t <= tenors[0]:
+!             return self.rates[tenors[0]]
+!         if t >= tenors[-1]:
+!             return self.rates[tenors[-1]]
+!         for i in range(len(tenors) - 1):
+!             if tenors[i] <= t <= tenors[i + 1]:
+!                 t0, t1 = tenors[i], tenors[i + 1]
+!                 r0, r1 = float(self.rates[t0]), float(self.rates[t1])
+!                 frac = (t - t0) / (t1 - t0) if (t1 - t0) != 0 else 0
+!                 return Decimal(str(r0 + frac * (r1 - r0)))
+!         return self.rates[tenors[-1]]
+  
+>     def discount_factor(self, t: float, mode: str = "continuous") -> Decimal:
+!         r = self.interpolate(t)
+!         from finpy.core.discount import discount_factor as df
+!         return df(r, t, mode)
+  
+>     def tenors(self) -> list[float]:
+!         return sorted(self.rates.keys())
+  
+>     def parallel_shift(self, shift_bps: Decimal) -> "YieldCurve":
+!         new_rates = {t: r + shift_bps / Decimal(10000) for t, r in self.rates.items()}
+!         return YieldCurve(rates=new_rates)
+  
+  
+> @dataclass(frozen=True, slots=True)
+> class ReturnSeries:
+>     values: list[Decimal]
+  
+>     def __post_init__(self):
+!         if len(self.values) < 2:
+!             raise ValueError("need at least 2 values")
+  
+>     def __repr__(self):
+!         return f"ReturnSeries(values={self.values})"
+  
+>     def __eq__(self, other):
+!         if not isinstance(other, ReturnSeries):
+!             return NotImplemented
+!         return self.values == other.values
+  
+>     def __hash__(self):
+!         return hash(tuple(self.values))
+  
+>     def to_dict(self) -> dict[str, Any]:
+!         return {"values": [str(v) for v in self.values]}
+  
+>     @classmethod
+>     def from_dict(cls, data: dict[str, Any]) -> "ReturnSeries":
+!         values = [Decimal(str(v)) for v in data["values"]]
+!         return cls(values=values)
+  
+>     def total_return(self) -> Decimal:
+!         total = Decimal(1)
+!         for v in self.values:
+!             total *= (Decimal(1) + v)
+!         return total - Decimal(1)
+  
+>     def arithmetic_mean(self) -> Decimal:
+!         return sum(self.values, Decimal(0)) / Decimal(len(self.values))
+  
+>     def geometric_mean(self) -> Decimal:
+!         product = Decimal(1)
+!         for v in self.values:
+!             product *= (Decimal(1) + v)
+!         n = Decimal(len(self.values))
+!         return product ** (Decimal(1) / n) - Decimal(1)
+  
+>     def variance(self, ddof: int = 1) -> Decimal:
+!         mean = self.arithmetic_mean()
+!         sq_dev = sum(((v - mean) ** 2 for v in self.values), Decimal(0))
+!         denom = Decimal(len(self.values) - ddof)
+!         if denom <= 0:
+!             raise ValueError("not enough values for variance with given ddof")
+!         return sq_dev / denom
+  
+>     def std(self, ddof: int = 1) -> Decimal:
+!         return self.variance(ddof=ddof).sqrt()
+  
+>     def sharpe_ratio(self, risk_free: Decimal = Decimal(0), ddof: int = 1) -> Decimal:
+!         excess = self.arithmetic_mean() - risk_free
+!         return excess / self.std(ddof=ddof) if self.std(ddof=ddof) != 0 else Decimal(0)
+  
+>     def max_drawdown(self) -> Decimal:
+!         peak = Decimal(1)
+!         cum = Decimal(1)
+!         max_dd = Decimal(0)
+!         for v in self.values:
+!             cum *= (Decimal(1) + v)
+!             if cum > peak:
+!                 peak = cum
+!             dd = (peak - cum) / peak
+!             if dd > max_dd:
+!                 max_dd = dd
+!         return max_dd
+  
+>     def sortino_ratio(self, risk_free: Decimal = Decimal(0), ddof: int = 1) -> Decimal:
+!         excess = self.arithmetic_mean() - risk_free
+!         downside = [v for v in self.values if v < risk_free]
+!         if not downside:
+!             return Decimal(0)
+!         n = len(downside)
+!         if n <= ddof:
+!             down_var = sum(((v - risk_free) ** 2 for v in downside), Decimal(0)) / Decimal(n)
+!         else:
+!             down_var = sum(((v - risk_free) ** 2 for v in downside), Decimal(0)) / Decimal(n - ddof)
+!         return excess / down_var.sqrt() if down_var > 0 else Decimal(0)
+  
+  
+> @dataclass(frozen=True, slots=True)
+> class FXRate:
+>     currency_pair: str
+>     rate: Decimal
+>     as_of: str
+  
+>     def __post_init__(self):
+!         if not isinstance(self.currency_pair, str) or len(self.currency_pair) != 7 or self.currency_pair[3] != '/':
+!             raise ValueError(f"invalid currency_pair format, got {self.currency_pair}")
+!         if self.rate <= 0:
+!             raise ValueError(f"rate must be positive, got {self.rate}")
+  
+>     def __repr__(self):
+!         return f"FXRate(currency_pair={self.currency_pair}, rate={self.rate}, as_of={self.as_of})"
+  
+>     def __eq__(self, other):
+!         if not isinstance(other, FXRate):
+!             return NotImplemented
+!         return (self.currency_pair == other.currency_pair and self.rate == other.rate
+!                 and self.as_of == other.as_of)
+  
+>     def __hash__(self):
+!         return hash((self.currency_pair, self.rate, self.as_of))
+  
+>     def to_dict(self) -> dict[str, Any]:
+!         return {"currency_pair": self.currency_pair, "rate": str(self.rate), "as_of": self.as_of}
+  
+>     @classmethod
+>     def from_dict(cls, data: dict[str, Any]) -> "FXRate":
+!         return cls(
+!             currency_pair=str(data["currency_pair"]),
+!             rate=Decimal(str(data["rate"])),
+!             as_of=str(data["as_of"]),
+!         )
+  
+>     def convert(self, amount: Decimal) -> Decimal:
+!         return amount * self.rate
+  
+>     def invert(self) -> "FXRate":
+!         parts = self.currency_pair.split('/')
+!         inverted_pair = f"{parts[1]}/{parts[0]}"
+!         return FXRate(currency_pair=inverted_pair, rate=Decimal(1) / self.rate, as_of=self.as_of)
+  
+>     def base_currency(self) -> str:
+!         return self.currency_pair[:3]
+  
+>     def quote_currency(self) -> str:
+!         return self.currency_pair[4:]
+  
+  
+> @dataclass(frozen=True, slots=True)
+> class ScheduleRow:
+>     period: int
+>     payment: Decimal
+>     interest: Decimal
+>     principal: Decimal
+>     balance: Decimal
+  
+>     def __repr__(self):
+!         return (f"ScheduleRow(period={self.period}, payment={self.payment}, "
+!                 f"interest={self.interest}, principal={self.principal}, balance={self.balance})")
+  
+>     def __eq__(self, other):
+!         if not isinstance(other, ScheduleRow):
+!             return NotImplemented
+!         return (self.period == other.period and self.payment == other.payment
+!                 and self.interest == other.interest and self.principal == other.principal
+!                 and self.balance == other.balance)
+  
+>     def __hash__(self):
+!         return hash((self.period, self.payment, self.interest, self.principal, self.balance))
+  
+>     def to_dict(self) -> dict[str, Any]:
+!         return {
+!             "period": self.period,
+!             "payment": str(self.payment),
+!             "interest": str(self.interest),
+!             "principal": str(self.principal),
+!             "balance": str(self.balance),
+!         }
+  
+>     @classmethod
+>     def from_dict(cls, data: dict[str, Any]) -> "ScheduleRow":
+!         return cls(
+!             period=int(data["period"]),
+!             payment=Decimal(str(data["payment"])),
+!             interest=Decimal(str(data["interest"])),
+!             principal=Decimal(str(data["principal"])),
+!             balance=Decimal(str(data["balance"])),
+!         )
+  
+  
+> @dataclass(frozen=True, slots=True)
+> class Result:
+>     value: Decimal
+>     label: str = ""
+  
+>     def __repr__(self):
+!         return f"Result(value={self.value}, label={self.label})"
+  
+>     def __eq__(self, other):
+!         if not isinstance(other, Result):
+!             return NotImplemented
+!         return self.value == other.value and self.label == other.label
+  
+>     def __hash__(self):
+!         return hash((self.value, self.label))
+  
+>     def to_dict(self) -> dict[str, Any]:
+!         return {"value": str(self.value), "label": self.label}
+  
+>     @classmethod
+>     def from_dict(cls, data: dict[str, Any]) -> "Result":
+!         return cls(value=Decimal(str(data["value"])), label=str(data.get("label", "")))
+  
+>     def __add__(self, other: "Result") -> "Result":
+!         if not isinstance(other, Result):
+!             return NotImplemented
+!         return Result(value=self.value + other.value)
+  
+>     def __sub__(self, other: "Result") -> "Result":
+!         if not isinstance(other, Result):
+!             return NotImplemented
+!         return Result(value=self.value - other.value)
+  
+>     def __mul__(self, scalar: Decimal) -> "Result":
+!         return Result(value=self.value * scalar)
+  
+>     def __truediv__(self, scalar: Decimal) -> "Result":
+!         if scalar == 0:
+!             raise ZeroDivisionError("cannot divide Result by zero")
+!         return Result(value=self.value / scalar)
+  
+  
+> @dataclass(frozen=True, slots=True)
+> class MarketData:
+>     symbol: str
+>     price: Decimal
+>     volume: Optional[int] = None
+>     timestamp: Optional[str] = None
+  
+>     def __post_init__(self):
+!         if not self.symbol:
+!             raise ValueError("symbol must be non-empty")
+!         if self.price <= 0:
+!             raise ValueError(f"price must be positive, got {self.price}")
+!         if self.volume is not None and self.volume < 0:
+!             raise ValueError(f"volume must be non-negative, got {self.volume}")
+  
+>     def __repr__(self):
+!         return f"MarketData(symbol={self.symbol}, price={self.price}, volume={self.volume})"
+  
+>     def __eq__(self, other):
+!         if not isinstance(other, MarketData):
+!             return NotImplemented
+!         return self.symbol == other.symbol and self.price == other.price
+  
+>     def __hash__(self):
+!         return hash((self.symbol, self.price))
+  
+>     def to_dict(self) -> dict[str, Any]:
+!         d: dict[str, Any] = {"symbol": self.symbol, "price": str(self.price)}
+!         if self.volume is not None:
+!             d["volume"] = self.volume
+!         if self.timestamp is not None:
+!             d["timestamp"] = self.timestamp
+!         return d
+  
+>     @classmethod
+>     def from_dict(cls, data: dict[str, Any]) -> "MarketData":
+!         return cls(
+!             symbol=str(data["symbol"]),
+!             price=Decimal(str(data["price"])),
+!             volume=data.get("volume"),
+!             timestamp=data.get("timestamp"),
+!         )
+  
+>     def spread(self, bid: Decimal, ask: Decimal) -> Decimal:
+!         return ask - bid
+  
+>     def mid_price(self, bid: Decimal, ask: Decimal) -> Decimal:
+!         return (bid + ask) / Decimal(2)
+  
+  
+> @dataclass(frozen=True, slots=True)
+> class Trade:
+>     trade_id: str
+>     symbol: str
+>     quantity: int
+>     price: Decimal
+>     trade_date: str
+>     trade_type: str = "buy"
+>     commission: Decimal = Decimal(0)
+  
+>     def __post_init__(self):
+!         if not self.trade_id:
+!             raise ValueError("trade_id must be non-empty")
+!         if not self.symbol:
+!             raise ValueError("symbol must be non-empty")
+!         if self.quantity == 0:
+!             raise ValueError("quantity cannot be zero")
+!         if self.price <= 0:
+!             raise ValueError(f"price must be positive, got {self.price}")
+!         if self.trade_type not in ("buy", "sell"):
+!             raise ValueError(f"trade_type must be 'buy' or 'sell', got {self.trade_type}")
+!         if self.commission < 0:
+!             raise ValueError(f"commission must be non-negative, got {self.commission}")
+  
+>     def __repr__(self):
+!         return (f"Trade(trade_id={self.trade_id}, symbol={self.symbol}, "
+!                 f"quantity={self.quantity}, price={self.price}, trade_type={self.trade_type})")
+  
+>     def __eq__(self, other):
+!         if not isinstance(other, Trade):
+!             return NotImplemented
+!         return self.trade_id == other.trade_id
+  
+>     def __hash__(self):
+!         return hash(self.trade_id)
+  
+>     def to_dict(self) -> dict[str, Any]:
+!         return {
+!             "trade_id": self.trade_id,
+!             "symbol": self.symbol,
+!             "quantity": self.quantity,
+!             "price": str(self.price),
+!             "trade_date": self.trade_date,
+!             "trade_type": self.trade_type,
+!             "commission": str(self.commission),
+!         }
+  
+>     @classmethod
+>     def from_dict(cls, data: dict[str, Any]) -> "Trade":
+!         return cls(
+!             trade_id=str(data["trade_id"]),
+!             symbol=str(data["symbol"]),
+!             quantity=int(data["quantity"]),
+!             price=Decimal(str(data["price"])),
+!             trade_date=str(data["trade_date"]),
+!             trade_type=str(data.get("trade_type", "buy")),
+!             commission=Decimal(str(data.get("commission", 0))),
+!         )
+  
+>     def notional(self) -> Decimal:
+!         return self.price * Decimal(abs(self.quantity))
+  
+>     def gross_value(self) -> Decimal:
+!         return self.price * Decimal(self.quantity)
+  
+>     def is_buy(self) -> bool:
+!         return self.trade_type == "buy"
+  
+>     def is_sell(self) -> bool:
+!         return self.trade_type == "sell"
+  
+  
+> @dataclass(frozen=True, slots=True)
+> class Position:
+>     symbol: str
+>     quantity: int
+>     cost_basis: Decimal
+>     current_price: Optional[Decimal] = None
+  
+>     def __post_init__(self):
+!         if not self.symbol:
+!             raise ValueError("symbol must be non-empty")
+!         if self.cost_basis < 0:
+!             raise ValueError(f"cost_basis must be non-negative, got {self.cost_basis}")
+!         if self.current_price is not None and self.current_price < 0:
+!             raise ValueError(f"current_price must be non-negative, got {self.current_price}")
+  
+>     def __repr__(self):
+!         return f"Position(symbol={self.symbol}, quantity={self.quantity}, cost_basis={self.cost_basis})"
+  
+>     def __eq__(self, other):
+!         if not isinstance(other, Position):
+!             return NotImplemented
+!         return self.symbol == other.symbol
+  
+>     def __hash__(self):
+!         return hash(self.symbol)
+  
+>     def to_dict(self) -> dict[str, Any]:
+!         d: dict[str, Any] = {
+!             "symbol": self.symbol,
+!             "quantity": self.quantity,
+!             "cost_basis": str(self.cost_basis),
+!         }
+!         if self.current_price is not None:
+!             d["current_price"] = str(self.current_price)
+!         return d
+  
+>     @classmethod
+>     def from_dict(cls, data: dict[str, Any]) -> "Position":
+!         return cls(
+!             symbol=str(data["symbol"]),
+!             quantity=int(data["quantity"]),
+!             cost_basis=Decimal(str(data["cost_basis"])),
+!             current_price=Decimal(str(data["current_price"])) if data.get("current_price") is not None else None,
+!         )
+  
+>     def market_value(self) -> Optional[Decimal]:
+!         if self.current_price is None:
+!             return None
+!         return self.current_price * Decimal(abs(self.quantity))
+  
+>     def unrealized_pnl(self) -> Optional[Decimal]:
+!         if self.current_price is None:
+!             return None
+!         return (self.current_price - self.cost_basis) * Decimal(abs(self.quantity))
+  
+>     def is_long(self) -> bool:
+!         return self.quantity > 0
+  
+>     def is_short(self) -> bool:
+!         return self.quantity < 0
+  
+>     def is_closed(self) -> bool:
+!         return self.quantity == 0
+  
+>     def weighted_cost_basis(self, additional_cost: Decimal, additional_qty: int) -> Decimal:
+!         total_cost = self.cost_basis * Decimal(abs(self.quantity)) + additional_cost * Decimal(abs(additional_qty))
+!         total_qty = abs(self.quantity) + abs(additional_qty)
+!         if total_qty == 0:
+!             return Decimal(0)
+!         return total_cost / Decimal(total_qty)
+  
+  
+> @dataclass(frozen=True, slots=True)
+> class Portfolio:
+>     positions: list[Position]
+>     cash: Decimal = Decimal(0)
+>     name: str = ""
+  
+>     def __post_init__(self):
+!         if self.cash < 0:
+!             raise ValueError(f"cash must be non-negative, got {self.cash}")
+  
+>     def __repr__(self):
+!         return f"Portfolio(name={self.name}, positions={len(self.positions)}, cash={self.cash})"
+  
+>     def __eq__(self, other):
+!         if not isinstance(other, Portfolio):
+!             return NotImplemented
+!         return self.name == other.name and self.positions == other.positions and self.cash == other.cash
+  
+>     def __hash__(self):
+!         return hash((self.name, tuple(self.positions), self.cash))
+  
+>     def to_dict(self) -> dict[str, Any]:
+!         return {
+!             "positions": [p.to_dict() for p in self.positions],
+!             "cash": str(self.cash),
+!             "name": self.name,
+!         }
+  
+>     @classmethod
+>     def from_dict(cls, data: dict[str, Any]) -> "Portfolio":
+!         positions = [Position.from_dict(p) for p in data["positions"]]
+!         return cls(
+!             positions=positions,
+!             cash=Decimal(str(data.get("cash", 0))),
+!             name=str(data.get("name", "")),
+!         )
+  
+>     def total_value(self) -> Decimal:
+!         total = self.cash
+!         for pos in self.positions:
+!             mv = pos.market_value()
+!             if mv is not None:
+!                 total += mv
+!         return total
+  
+>     def total_unrealized_pnl(self) -> Decimal:
+!         total = Decimal(0)
+!         for pos in self.positions:
+!             upnl = pos.unrealized_pnl()
+!             if upnl is not None:
+!                 total += upnl
+!         return total
+  
+>     def position_count(self) -> int:
+!         return len(self.positions)
+  
+>     def has_position(self, symbol: str) -> bool:
+!         return any(p.symbol == symbol for p in self.positions)
+  
+>     def get_position(self, symbol: str) -> Optional[Position]:
+!         for p in self.positions:
+!             if p.symbol == symbol:
+!                 return p
+!         return None
+  
+>     def exposure_by_symbol(self) -> dict[str, Decimal]:
+!         result: dict[str, Decimal] = {}
+!         for pos in self.positions:
+!             mv = pos.market_value()
+!             if mv is not None:
+!                 result[pos.symbol] = mv
+!         return result
+  
+>     def net_exposure(self) -> Decimal:
+!         total = Decimal(0)
+!         for pos in self.positions:
+!             mv = pos.market_value()
+!             if mv is not None:
+!                 if pos.is_long():
+!                     total += mv
+!                 elif pos.is_short():
+!                     total -= mv
+!         return total
+  
+>     def gross_exposure(self) -> Decimal:
+!         total = Decimal(0)
+!         for pos in self.positions:
+!             mv = pos.market_value()
+!             if mv is not None:
+!                 total += abs(mv)
+!         return total
+  
+  
+> @dataclass(frozen=True, slots=True)
+> class OrderBook:
+>     symbol: str
+>     bids: list[tuple[Decimal, int]]
+>     asks: list[tuple[Decimal, int]]
+>     timestamp: Optional[str] = None
+  
+>     def __post_init__(self):
+!         if not self.symbol:
+!             raise ValueError("symbol must be non-empty")
+!         bids_sorted = sorted(self.bids, key=lambda x: x[0], reverse=True)
+!         asks_sorted = sorted(self.asks, key=lambda x: x[0])
+!         if bids_sorted != self.bids:
+!             raise ValueError("bids must be sorted descending by price")
+!         if asks_sorted != self.asks:
+!             raise ValueError("asks must be sorted ascending by price")
+  
+>     def __repr__(self):
+!         return f"OrderBook(symbol={self.symbol}, bids={len(self.bids)}, asks={len(self.asks)})"
+  
+>     def __eq__(self, other):
+!         if not isinstance(other, OrderBook):
+!             return NotImplemented
+!         return self.symbol == other.symbol and self.bids == other.bids and self.asks == other.asks
+  
+>     def __hash__(self):
+!         return hash((self.symbol, tuple(self.bids), tuple(self.asks)))
+  
+>     def to_dict(self) -> dict[str, Any]:
+!         d: dict[str, Any] = {
+!             "symbol": self.symbol,
+!             "bids": [[str(p), q] for p, q in self.bids],
+!             "asks": [[str(p), q] for p, q in self.asks],
+!         }
+!         if self.timestamp is not None:
+!             d["timestamp"] = self.timestamp
+!         return d
+  
+>     @classmethod
+>     def from_dict(cls, data: dict[str, Any]) -> "OrderBook":
+!         bids = [(Decimal(str(p)), int(q)) for p, q in data["bids"]]
+!         asks = [(Decimal(str(p)), int(q)) for p, q in data["asks"]]
+!         return cls(
+!             symbol=str(data["symbol"]),
+!             bids=bids,
+!             asks=asks,
+!             timestamp=data.get("timestamp"),
+!         )
+  
+>     def best_bid(self) -> Optional[Decimal]:
+!         return self.bids[0][0] if self.bids else None
+  
+>     def best_ask(self) -> Optional[Decimal]:
+!         return self.asks[0][0] if self.asks else None
+  
+>     def spread(self) -> Optional[Decimal]:
+!         bb = self.best_bid()
+!         ba = self.best_ask()
+!         if bb is not None and ba is not None:
+!             return ba - bb
+!         return None
+  
+>     def mid_price(self) -> Optional[Decimal]:
+!         bb = self.best_bid()
+!         ba = self.best_ask()
+!         if bb is not None and ba is not None:
+!             return (bb + ba) / Decimal(2)
+!         return None
+  
+>     def total_bid_volume(self) -> int:
+!         return sum(q for _, q in self.bids)
+  
+>     def total_ask_volume(self) -> int:
+!         return sum(q for _, q in self.asks)
+  
+>     def bid_depth(self, levels: int) -> list[tuple[Decimal, int]]:
+!         return self.bids[:levels]
+  
+>     def ask_depth(self, levels: int) -> list[tuple[Decimal, int]]:
+!         return self.asks[:levels]
+  
+>     def imbalance_ratio(self) -> Optional[Decimal]:
+!         bid_vol = self.total_bid_volume()
+!         ask_vol = self.total_ask_volume()
+!         if bid_vol + ask_vol == 0:
+!             return None
+!         return Decimal(bid_vol - ask_vol) / Decimal(bid_vol + ask_vol)
+  
+  
+> @dataclass(frozen=True, slots=True)
+> class TimeSeries:
+>     dates: list[str]
+>     values: list[Decimal]
+  
+>     def __post_init__(self):
+!         if len(self.dates) != len(self.values):
+!             raise ValueError(f"dates ({len(self.dates)}) and values ({len(self.values)}) must have same length")
+!         if len(self.dates) < 2:
+!             raise ValueError("need at least 2 data points")
+  
+>     def __repr__(self):
+!         return f"TimeSeries(start={self.dates[0]}, end={self.dates[-1]}, points={len(self.dates)})"
+  
+>     def __eq__(self, other):
+!         if not isinstance(other, TimeSeries):
+!             return NotImplemented
+!         return self.dates == other.dates and self.values == other.values
+  
+>     def __hash__(self):
+!         return hash((tuple(self.dates), tuple(self.values)))
+  
+>     def __len__(self):
+!         return len(self.dates)
+  
+>     def __getitem__(self, idx):
+!         if isinstance(idx, slice):
+!             return TimeSeries(dates=self.dates[idx], values=self.values[idx])
+!         return self.values[idx]
+  
+>     def to_dict(self) -> dict[str, Any]:
+!         return {"dates": self.dates, "values": [str(v) for v in self.values]}
+  
+>     @classmethod
+>     def from_dict(cls, data: dict[str, Any]) -> "TimeSeries":
+!         values = [Decimal(str(v)) for v in data["values"]]
+!         return cls(dates=list(data["dates"]), values=values)
+  
+>     def first(self) -> Decimal:
+!         return self.values[0]
+  
+>     def last(self) -> Decimal:
+!         return self.values[-1]
+  
+>     def min(self) -> Decimal:
+!         return min(self.values)
+  
+>     def max(self) -> Decimal:
+!         return max(self.values)
+  
+>     def mean(self) -> Decimal:
+!         return sum(self.values, Decimal(0)) / Decimal(len(self.values))
+  
+>     def std(self, ddof: int = 1) -> Decimal:
+!         mean = self.mean()
+!         sq_dev = sum(((v - mean) ** 2 for v in self.values), Decimal(0))
+!         denom = Decimal(len(self.values) - ddof)
+!         if denom <= 0:
+!             raise ValueError("not enough data points for std with given ddof")
+!         return (sq_dev / denom).sqrt()
+  
+>     def pct_change(self) -> "TimeSeries":
+!         new_vals: list[Decimal] = []
+!         new_dates: list[str] = []
+!         for i in range(1, len(self.values)):
+!             prev = self.values[i - 1]
+!             if prev == 0:
+!                 raise ZeroDivisionError("cannot compute pct_change with zero base value")
+!             new_vals.append((self.values[i] - prev) / prev)
+!             new_dates.append(self.dates[i])
+!         return TimeSeries(dates=new_dates, values=new_vals)
+  
+>     def log_returns(self) -> "TimeSeries":
+!         from decimal import InvalidOperation
+!         new_vals: list[Decimal] = []
+!         new_dates: list[str] = []
+!         for i in range(1, len(self.values)):
+!             prev = self.values[i - 1]
+!             if prev <= 0:
+!                 raise InvalidOperation("cannot compute log return with non-positive base")
+!             ratio = self.values[i] / prev
+!             from finpy.core.compounding import ln
+!             new_vals.append(ln(ratio))
+!             new_dates.append(self.dates[i])
+!         return TimeSeries(dates=new_dates, values=new_vals)
+  
+>     def cumulative(self) -> "TimeSeries":
+!         cum = Decimal(1)
+!         result: list[Decimal] = []
+!         for v in self.values:
+!             cum *= (Decimal(1) + v)
+!             result.append(cum)
+!         return TimeSeries(dates=self.dates, values=result)
