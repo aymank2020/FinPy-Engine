@@ -1,0 +1,128 @@
+> """FinPy-Engine: Python financial-calculations library and CLI."""
+  
+> __version__ = "0.4.2"
+  
+> from finpy.core import (
+>     Cashflow, Instrument, YieldCurve, ReturnSeries, FXRate, ScheduleRow, Result, FXHistory,
+>     MarketData, Trade, Position, Portfolio, OrderBook, TimeSeries,
+>     FinPyError, InvalidCashflowError, InvalidInstrumentError, NoSolutionFoundError,
+>     UnknownCurrencyError, RateNotAvailableError, SchemaValidationError, MigrationError,
+>     InvalidTradeError, InsufficientDataError, InvalidParameterError,
+>     InvalidPortfolioError, InvalidPositionError, ConvergenceError,
+>     ValuationError, MarketDataError, CurveConstructionError,
+>     InterpolationError, DateMismatchError, NotImplementedInModeError,
+>     NegativeRateError, DivisionByZeroError,
+>     CalculationError, DataNotFoundError, UnsupportedModeError,
+>     PeriodMismatchError, ValidationAggregateError, CashflowStructureError,
+>     PriceOutOfRangeError, TimeSeriesError,
+>     OverlappingDataError, InvalidDateError, BenchmarkMismatchError,
+>     InsufficientObservationsError, OptimizationError, ConfigurationError,
+>     FileFormatError, ImportError,
+>     compound, discount_factor, present_value_of_flow, future_value_of_flow,
+>     compound_factor, effective_annual_rate, nominal_from_effective,
+>     continuous_equiv, discrete_equiv, doubling_time, future_value,
+>     growth_rate, annualized_return, ln, exp, rule_of_72, rule_of_114, rule_of_144,
+>     compounding_frequency, periodic_rate, annual_rate_from_periodic,
+>     holding_period_return, real_rate_of_return, force_of_interest,
+>     discount_rate_from_interest, interest_rate_from_discount,
+>     discount_yield, money_market_yield, bond_equivalent_yield,
+>     yield_to_maturity as ytm_core, current_yield,
+>     macaulay_duration, modified_duration, convexity,
+>     zero_coupon_rate, forward_rate, annuity_factor, sinking_factor, capital_recovery_factor,
+>     is_positive, is_non_negative, is_zero, clamp, sign, round_decimal,
+>     percentage_change, weighted_average, days_in_year, days_in_month,
+>     years_between, validate_rate, validate_positive, validate_non_negative,
+>     bucket_date, format_date, safe_divide, normalize_list, cumulative_sum,
+>     running_max, running_min, deduplicate, batch,
+> )
+  
+> from finpy.tvm import present_value, future_value, npv, npv_series, irr, mirr, payback, discounted_payback
+> from finpy.bonds import accrued_interest, clean_price, dirty_price, ytm, modified_duration, convexity
+> from finpy.loans import (
+>     amortization_schedule, refinance_breakeven, apply_prepayment,
+>     outstanding_balance, total_interest, monthly_payment,
+>     interest_only_payment, balloon_payment, amortization_summary,
+>     refinance_total_savings, refinance_npv, refinance_irr, rate_comparison,
+> )
+> from finpy.risk import historical_var, parametric_var, sharpe_ratio, sortino_ratio, max_drawdown, beta
+> from finpy.fx import (
+>     is_valid_currency, convert_spot, convert_as_of,
+>     list_currencies, currency_name, currency_symbol, add_currency,
+>     convert_bid_ask, cross_rate, inverse_rate,
+>     rate_history, latest_rate, rate_range, rate_min_max, rate_mean, rate_volatility,
+> )
+> from finpy.returns import (
+>     log_returns, rolling_mean, rolling_std, autocorrelation,
+>     simple_returns, cumulative_return, annualized_volatility,
+>     total_return, arithmetic_mean, geometric_mean, variance, std,
+>     skewness, kurtosis, semivariance, downside_std, max_drawdown,
+>     calmar_ratio, annualized_return, annualized_std, information_ratio,
+>     tracking_error, gain_loss_ratio, ulcer_index,
+>     rolling_window, rolling_sum, rolling_min, rolling_max, rolling_median,
+>     rolling_var, rolling_cov, rolling_corr, rolling_skew, rolling_kurtosis,
+>     ewm_mean, ewm_std,
+>     autocorrelation_matrix, ljung_box_statistic, partial_autocorrelation,
+> )
+  
+  # Legacy aliases
+> from finpy.tvm.npv import npv as net_present_value
+> from finpy.tvm.irr import irr as internal_rate_of_return
+> from finpy.bonds.clean_price import clean_price as bond_price
+> from finpy.bonds.ytm import ytm as yield_to_maturity
+> from finpy.fx.spot import convert_spot as convert
+> from finpy.returns.log_returns import log_returns as _lr
+  
+> __all__ = [
+>     "Cashflow", "Instrument", "YieldCurve", "ReturnSeries", "FXRate", "ScheduleRow", "Result", "FXHistory",
+>     "MarketData", "Trade", "Position", "Portfolio", "OrderBook", "TimeSeries",
+>     "FinPyError", "InvalidCashflowError", "InvalidInstrumentError", "NoSolutionFoundError",
+>     "UnknownCurrencyError", "RateNotAvailableError", "SchemaValidationError", "MigrationError",
+>     "InvalidTradeError", "InsufficientDataError", "InvalidParameterError",
+>     "InvalidPortfolioError", "InvalidPositionError", "ConvergenceError",
+>     "ValuationError", "MarketDataError", "CurveConstructionError",
+>     "InterpolationError", "DateMismatchError", "NotImplementedInModeError",
+>     "NegativeRateError", "DivisionByZeroError",
+>     "CalculationError", "DataNotFoundError", "UnsupportedModeError",
+>     "PeriodMismatchError", "ValidationAggregateError", "CashflowStructureError",
+>     "PriceOutOfRangeError", "TimeSeriesError",
+>     "OverlappingDataError", "InvalidDateError", "BenchmarkMismatchError",
+>     "InsufficientObservationsError", "OptimizationError", "ConfigurationError",
+>     "FileFormatError", "ImportError",
+>     "compound", "discount_factor", "present_value_of_flow",
+>     "compound_factor", "effective_annual_rate", "nominal_from_effective",
+>     "continuous_equiv", "discrete_equiv", "doubling_time", "future_value",
+>     "growth_rate", "annualized_return", "ln", "exp", "rule_of_72", "rule_of_114", "rule_of_144",
+>     "discount_yield", "money_market_yield", "bond_equivalent_yield",
+>     "ytm_core", "current_yield", "macaulay_duration", "modified_duration", "convexity",
+>     "zero_coupon_rate", "forward_rate", "annuity_factor", "sinking_factor", "capital_recovery_factor",
+>     "future_value_of_flow", "discount_yield", "money_market_yield", "bond_equivalent_yield",
+>     "ytm_core", "current_yield", "macaulay_duration", "modified_duration", "convexity",
+>     "zero_coupon_rate", "forward_rate", "annuity_factor", "sinking_factor", "capital_recovery_factor",
+>     "is_positive", "is_non_negative", "is_zero", "clamp", "sign", "round_decimal",
+>     "percentage_change", "weighted_average", "days_in_year", "days_in_month",
+>     "years_between", "validate_rate", "validate_positive", "validate_non_negative",
+>     "bucket_date", "format_date", "safe_divide", "normalize_list", "cumulative_sum",
+>     "running_max", "running_min", "deduplicate", "batch",
+>     "present_value", "future_value", "npv", "npv_series", "irr", "mirr", "payback", "discounted_payback",
+>     "accrued_interest", "clean_price", "dirty_price", "ytm", "modified_duration", "convexity",
+>     "amortization_schedule", "refinance_breakeven", "apply_prepayment",
+>     "outstanding_balance", "total_interest", "monthly_payment",
+>     "interest_only_payment", "balloon_payment", "amortization_summary",
+>     "refinance_total_savings", "refinance_npv", "refinance_irr", "rate_comparison",
+>     "historical_var", "parametric_var", "sharpe_ratio", "sortino_ratio", "max_drawdown", "beta",
+>     "is_valid_currency", "convert_spot", "convert_as_of",
+>     "list_currencies", "currency_name", "currency_symbol", "add_currency",
+>     "convert_bid_ask", "cross_rate", "inverse_rate",
+>     "rate_history", "latest_rate", "rate_range", "rate_min_max", "rate_mean", "rate_volatility",
+>     "log_returns", "rolling_mean", "rolling_std", "autocorrelation",
+>     "simple_returns", "cumulative_return", "annualized_volatility",
+>     "total_return", "arithmetic_mean", "geometric_mean", "variance", "std",
+>     "skewness", "kurtosis", "semivariance", "downside_std", "max_drawdown",
+>     "calmar_ratio", "annualized_return", "annualized_std", "information_ratio",
+>     "tracking_error", "gain_loss_ratio", "ulcer_index",
+>     "rolling_window", "rolling_sum", "rolling_min", "rolling_max", "rolling_median",
+>     "rolling_var", "rolling_cov", "rolling_corr", "rolling_skew", "rolling_kurtosis",
+>     "ewm_mean", "ewm_std",
+>     "autocorrelation_matrix", "ljung_box_statistic", "partial_autocorrelation",
+>     "net_present_value", "internal_rate_of_return", "bond_price", "yield_to_maturity", "convert",
+> ]
