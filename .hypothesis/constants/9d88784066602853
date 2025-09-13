@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\cli\main.py
+# hypothesis_version: 6.152.7
+
+['--debug', '--quiet', '--version', '-q', '1', 'FINPY_DEBUG', '__main__', 'command', 'enable debug output', 'finpy', 'func', 'store_true', 'version']
