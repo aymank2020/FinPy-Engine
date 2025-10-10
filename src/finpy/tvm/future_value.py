@@ -1,0 +1,138 @@
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Optional
+import math
+
+
+def future_value(rate: float, nper: int, pmt: float, pv: float, when: str = "end", *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    n = Decimal(str(nper))
+    p = Decimal(str(pmt))
+    pv_dec = Decimal(str(pv))
+    one = Decimal(1)
+    if r == 0:
+        fv = pv_dec + p * n
+    else:
+        factor = (one + r) ** n
+        if when == "begin":
+            fv = pv_dec * factor + p * (one + r) * (factor - one) / r
+        else:
+            fv = pv_dec * factor + p * (factor - one) / r
+    if ndigits is not None:
+        fv = fv.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return fv
+
+
+def fv_of_uneven_cashflows(rate: float, cash_flows: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    one = Decimal(1)
+    n = len(cash_flows)
+    result = Decimal(0)
+    for t, cf in enumerate(cash_flows):
+        result += Decimal(str(cf)) * (one + r) ** Decimal(str(n - 1 - t))
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def fv_annuity_due(rate: float, nper: int, pmt: float, *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    n = Decimal(str(nper))
+    p = Decimal(str(pmt))
+    one = Decimal(1)
+    if r == 0:
+        result = p * n
+    else:
+        result = p * (one + r) * ((one + r) ** n - one) / r
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def fv_with_continuous_compounding(rate: float, nper: int, pv: float, *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    n = Decimal(str(nper))
+    pv_dec = Decimal(str(pv))
+    e = Decimal(str(math.e))
+    result = pv_dec * (e ** (r * n))
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def fv_uneven_with_continuous_compounding(rate: float, cash_flows: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    e = Decimal(str(math.e))
+    n = len(cash_flows)
+    result = Decimal(0)
+    for t, cf in enumerate(cash_flows):
+        remaining = Decimal(str(n - t))
+        result += Decimal(str(cf)) * (e ** (r * remaining))
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def fv_continuous_with_pmt(rate: float, nper: int, pmt: float, *, ndigits: Optional[int] = None) -> Decimal:
+    import math
+    r = Decimal(str(rate))
+    n = Decimal(str(nper))
+    p = Decimal(str(pmt))
+    e = Decimal(str(math.e))
+    if r == 0:
+        result = p * n
+    else:
+        result = p * ((e ** (r * n)) - Decimal(1)) / (e ** r - Decimal(1))
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def fv_single_amount(pv: float, rate: float, nper: int, *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    n = Decimal(str(nper))
+    pv_dec = Decimal(str(pv))
+    one = Decimal(1)
+    result = pv_dec * (one + r) ** n
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def fv_continuous_single(pv: float, rate: float, nper: int, *, ndigits: Optional[int] = None) -> Decimal:
+    return fv_with_continuous_compounding(rate, nper, pv, ndigits=ndigits)
+
+
+def fv_annuity_immediate(rate: float, nper: int, pmt: float, *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    n = Decimal(str(nper))
+    p = Decimal(str(pmt))
+    one = Decimal(1)
+    if r == 0:
+        result = p * n
+    else:
+        result = p * ((one + r) ** n - one) / r
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def fv_of_growing_annuity(rate: float, growth_rate: float, nper: int, pmt: float, when: str = "end", *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    g = Decimal(str(growth_rate))
+    n = Decimal(str(nper))
+    p = Decimal(str(pmt))
+    one = Decimal(1)
+    if r == g:
+        if when == "begin":
+            result = p * n * (one + r) ** n
+        else:
+            result = p * n * (one + r) ** (n - one)
+    else:
+        factor = ((one + r) ** n - (one + g) ** n) / (r - g)
+        if when == "begin":
+            result = p * (one + r) * factor
+        else:
+            result = p * factor
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
