@@ -1,0 +1,47 @@
+> _migration_registry = {}
+  
+> import importlib
+  
+> _migration_registry[1] = (
+>     importlib.import_module("finpy.migrations.0001_initial").upgrade,
+>     importlib.import_module("finpy.migrations.0001_initial").downgrade,
+> )
+> _migration_registry[2] = (
+>     importlib.import_module("finpy.migrations.0002_add_curve").upgrade,
+>     importlib.import_module("finpy.migrations.0002_add_curve").downgrade,
+> )
+> _migration_registry[3] = (
+>     importlib.import_module("finpy.migrations.0003_rename_field").upgrade,
+>     importlib.import_module("finpy.migrations.0003_rename_field").downgrade,
+> )
+> _migration_registry[4] = (
+>     importlib.import_module("finpy.migrations.0004_add_types").upgrade,
+>     importlib.import_module("finpy.migrations.0004_add_types").downgrade,
+> )
+  
+  
+> def get_latest_version() -> int:
+!     return max(_migration_registry.keys())
+  
+  
+> def run_migrations(payload: dict, from_version: int, to_version: int) -> dict:
+!     if from_version < to_version:
+!         for v in range(from_version + 1, to_version + 1):
+!             if v not in _migration_registry:
+!                 raise ValueError(f"No migration for version {v}")
+!             payload = _migration_registry[v][0](payload)
+!     elif from_version > to_version:
+!         for v in range(from_version, to_version, -1):
+!             if v not in _migration_registry:
+!                 raise ValueError(f"No migration for version {v}")
+!             payload = _migration_registry[v][1](payload)
+!     return payload
+  
+  
+> def migrate_to_latest(payload: dict) -> dict:
+!     version = payload.get("version", 0)
+!     latest = get_latest_version()
+!     return run_migrations(payload, version, latest)
+  
+  
+> __all__ = ["_migration_registry", "get_latest_version", "run_migrations", "migrate_to_latest"]
