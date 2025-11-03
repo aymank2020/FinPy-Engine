@@ -1,0 +1,41 @@
+# Python virtual environments
+venv/
+.venv/
+env/
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest / coverage artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Distribution / packaging
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+pip-wheel-metadata/
+
+# Editor / IDE / agent metadata
+.kiro/
+.cursor/
+.idea/
+.vscode/
+
+# Node (defensive - repository must not contain JS tooling)
+node_modules/
+
+# Local environment files
+.env
+.env.*
+
+# OS noise
+.DS_Store
+Thumbs.db
