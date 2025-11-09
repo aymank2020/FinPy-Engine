@@ -1,0 +1,194 @@
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Optional
+from datetime import date
+
+
+def payback(cash_flows: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+    cumulative = Decimal(0)
+    for t, cf in enumerate(cash_flows):
+        cumulative += Decimal(str(cf))
+        if cumulative >= 0:
+            result = Decimal(str(t))
+            if ndigits is not None:
+                result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+            return result
+    raise ValueError("Payback period not reached")
+
+
+def discounted_payback(rate: float, cash_flows: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    one = Decimal(1)
+    cumulative = Decimal(0)
+    for t, cf in enumerate(cash_flows):
+        cumulative += Decimal(str(cf)) / (one + r) ** Decimal(str(t))
+        if cumulative >= 0:
+            result = Decimal(str(t))
+            if ndigits is not None:
+                result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+            return result
+    raise ValueError("Discounted payback period not reached")
+
+
+def discounted_payback_irregular(rate: float, cash_flows: list[float], dates: list[date], *, ndigits: Optional[int] = None) -> Decimal:
+    if len(cash_flows) != len(dates):
+        raise ValueError("cash_flows and dates must have the same length")
+    if len(cash_flows) == 0:
+        raise ValueError("At least one cash flow is required")
+    r = Decimal(str(rate))
+    one = Decimal(1)
+    base_date = dates[0]
+    cumulative = Decimal(0)
+    for cf, d in zip(cash_flows, dates):
+        days = (d - base_date).days
+        year_frac = Decimal(str(days)) / Decimal("365")
+        cumulative += Decimal(str(cf)) / (one + r) ** year_frac
+        if cumulative >= 0:
+            result = Decimal(str(days)) / Decimal("365")
+            if ndigits is not None:
+                result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+            return result
+    raise ValueError("Discounted payback period not reached with given cash flows")
+
+
+def profitability_index(npv_value: float, initial_investment: float, *, ndigits: Optional[int] = None) -> Decimal:
+    npv_dec = Decimal(str(npv_value))
+    inv_dec = Decimal(str(initial_investment))
+    if inv_dec == 0:
+        raise ValueError("Initial investment cannot be zero")
+    result = (npv_dec + inv_dec) / inv_dec
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def payback_with_fraction(cash_flows: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+    cumulative = Decimal(0)
+    for t, cf in enumerate(cash_flows):
+        cf_dec = Decimal(str(cf))
+        if cumulative < 0 and cumulative + cf_dec >= 0:
+            fraction = -cumulative / cf_dec
+            result = Decimal(str(t - 1)) + fraction if t > 0 else fraction
+            if ndigits is not None:
+                result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+            return result
+        cumulative += cf_dec
+    raise ValueError("Payback period not reached")
+
+
+def discounted_payback_with_fraction(rate: float, cash_flows: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    one = Decimal(1)
+    cumulative = Decimal(0)
+    for t, cf in enumerate(cash_flows):
+        cf_dec = Decimal(str(cf))
+        pv_cf = cf_dec / (one + r) ** Decimal(str(t))
+        if cumulative < 0 and cumulative + pv_cf >= 0:
+            fraction = -cumulative / pv_cf
+            result = Decimal(str(t - 1)) + fraction if t > 0 else fraction
+            if ndigits is not None:
+                result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+            return result
+        cumulative += pv_cf
+    raise ValueError("Discounted payback period not reached")
+
+
+def payback_from_investment(initial_investment: float, annual_cash_flow: float, *, ndigits: Optional[int] = None) -> Decimal:
+    inv = Decimal(str(initial_investment))
+    cf = Decimal(str(annual_cash_flow))
+    if cf <= 0:
+        raise ValueError("Annual cash flow must be positive")
+    if inv <= 0:
+        raise ValueError("Initial investment must be positive")
+    result = inv / cf
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def discounted_payback_from_investment(initial_investment: float, annual_cash_flow: float, rate: float, *, ndigits: Optional[int] = None) -> Decimal:
+    inv = Decimal(str(initial_investment))
+    cf = Decimal(str(annual_cash_flow))
+    r = Decimal(str(rate))
+    one = Decimal(1)
+    if cf <= 0:
+        raise ValueError("Annual cash flow must be positive")
+    if inv <= 0:
+        raise ValueError("Initial investment must be positive")
+    if r == 0:
+        result = inv / cf
+        if ndigits is not None:
+            result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+        return result
+    remaining = inv
+    t = 0
+    max_periods = 10000
+    while t < max_periods:
+        pv_cf = cf / (one + r) ** Decimal(str(t + 1))
+        if pv_cf >= remaining:
+            fraction = remaining / pv_cf
+            result = Decimal(str(t + 1)) - one + fraction
+            if ndigits is not None:
+                result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+            return result
+        remaining -= pv_cf
+        t += 1
+    raise ValueError("Discounted payback period not reached within 10000 periods")
+
+
+def average_accounting_return(average_profit: float, average_investment: float, *, ndigits: Optional[int] = None) -> Decimal:
+    profit = Decimal(str(average_profit))
+    inv = Decimal(str(average_investment))
+    if inv == 0:
+        raise ValueError("Average investment cannot be zero")
+    result = profit / inv
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def payback_period_years(initial_investment: float, annual_net_cash_flow: float) -> Decimal:
+    inv = Decimal(str(initial_investment))
+    cf = Decimal(str(annual_net_cash_flow))
+    if cf <= 0:
+        raise ValueError("Annual net cash flow must be positive")
+    if inv <= 0:
+        raise ValueError("Initial investment must be positive")
+    return inv / cf
+
+
+def discounted_payback_period_years(initial_investment: float, annual_net_cash_flow: float, rate: float, max_years: int = 100) -> Decimal:
+    inv = Decimal(str(initial_investment))
+    cf = Decimal(str(annual_net_cash_flow))
+    r = Decimal(str(rate))
+    one = Decimal(1)
+    if cf <= 0:
+        raise ValueError("Annual net cash flow must be positive")
+    if inv <= 0:
+        raise ValueError("Initial investment must be positive")
+    cumulative = Decimal(0)
+    for t in range(1, max_years + 1):
+        pv_cf = cf / (one + r) ** Decimal(str(t))
+        if cumulative + pv_cf >= inv:
+            fraction = (inv - cumulative) / pv_cf
+            return Decimal(str(t)) - one + fraction
+        cumulative += pv_cf
+    raise ValueError(f"Payback period not reached within {max_years} years")
+
+
+def payback_ratio(initial_investment: float, total_cash_inflows: float) -> Decimal:
+    inv = Decimal(str(initial_investment))
+    inflows = Decimal(str(total_cash_inflows))
+    if inv <= 0:
+        raise ValueError("Initial investment must be positive")
+    return inflows / inv
+
+
+def benefit_cost_ratio(present_value_of_benefits: float, present_value_of_costs: float, *, ndigits: Optional[int] = None) -> Decimal:
+    benefits = Decimal(str(present_value_of_benefits))
+    costs = Decimal(str(present_value_of_costs))
+    if costs == 0:
+        raise ValueError("Present value of costs cannot be zero")
+    result = benefits / costs
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
