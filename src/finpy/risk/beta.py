@@ -1,0 +1,114 @@
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Optional
+import math
+
+
+def beta(asset_returns: list[float], market_returns: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+    if len(asset_returns) != len(market_returns) or len(asset_returns) < 2:
+        raise ValueError("Need equal-length series with at least 2 values")
+    n = len(asset_returns)
+    mean_asset = sum(asset_returns) / n
+    mean_market = sum(market_returns) / n
+    cov = sum((a - mean_asset) * (m - mean_market) for a, m in zip(asset_returns, market_returns)) / (n - 1)
+    var_market = sum((m - mean_market) ** 2 for m in market_returns) / (n - 1)
+    if var_market == 0:
+        return Decimal(0)
+    result = Decimal(str(cov)) / Decimal(str(var_market))
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def alpha_jensen(asset_returns: list[float], market_returns: list[float], risk_free_rate: float = 0.0, *, ndigits: Optional[int] = None) -> Decimal:
+    if len(asset_returns) != len(market_returns) or len(asset_returns) < 2:
+        raise ValueError("Need equal-length series with at least 2 values")
+    n = len(asset_returns)
+    mean_asset = sum(asset_returns) / n
+    mean_market = sum(market_returns) / n
+    mean_rf = Decimal(str(risk_free_rate))
+    cov = sum((a - mean_asset) * (m - mean_market) for a, m in zip(asset_returns, market_returns)) / (n - 1)
+    var_market = sum((m - mean_market) ** 2 for m in market_returns) / (n - 1)
+    if var_market == 0:
+        result = Decimal(str(mean_asset)) - mean_rf
+        if ndigits is not None:
+            result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+        return result
+    b = Decimal(str(cov)) / Decimal(str(var_market))
+    erp = Decimal(str(mean_market)) - mean_rf
+    result = Decimal(str(mean_asset)) - mean_rf - b * erp
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def tracking_error(asset_returns: list[float], benchmark_returns: list[float], periods_per_year: Optional[int] = None, *, ndigits: Optional[int] = None) -> Decimal:
+    if len(asset_returns) != len(benchmark_returns) or len(asset_returns) < 2:
+        raise ValueError("Need equal-length series with at least 2 values")
+    n = len(asset_returns)
+    diffs = [a - b for a, b in zip(asset_returns, benchmark_returns)]
+    mean_diff = sum(diffs) / n
+    variance = sum((d - mean_diff) ** 2 for d in diffs) / (n - 1)
+    result = Decimal(str(math.sqrt(variance)))
+    if periods_per_year is not None:
+        result *= Decimal(str(math.sqrt(periods_per_year)))
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def information_ratio(asset_returns: list[float], benchmark_returns: list[float], periods_per_year: Optional[int] = None, *, ndigits: Optional[int] = None) -> Decimal:
+    if len(asset_returns) != len(benchmark_returns) or len(asset_returns) < 2:
+        raise ValueError("Need equal-length series with at least 2 values")
+    n = len(asset_returns)
+    diffs = [a - b for a, b in zip(asset_returns, benchmark_returns)]
+    mean_diff = sum(diffs) / n
+    variance = sum((d - mean_diff) ** 2 for d in diffs) / (n - 1)
+    if variance == 0:
+        if mean_diff > 0:
+            return Decimal('Inf')
+        return Decimal(0)
+    result = Decimal(str(mean_diff)) / Decimal(str(math.sqrt(variance)))
+    if periods_per_year is not None:
+        result *= Decimal(str(math.sqrt(periods_per_year)))
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def treynor_ratio(asset_returns: list[float], market_returns: list[float], risk_free_rate: float = 0.0, *, ndigits: Optional[int] = None) -> Decimal:
+    if len(asset_returns) != len(market_returns) or len(asset_returns) < 2:
+        raise ValueError("Need equal-length series with at least 2 values")
+    n = len(asset_returns)
+    mean_asset = sum(asset_returns) / n
+    mean_market = sum(market_returns) / n
+    mean_rf = Decimal(str(risk_free_rate))
+    cov = sum((a - mean_asset) * (m - mean_market) for a, m in zip(asset_returns, market_returns)) / (n - 1)
+    var_market = sum((m - mean_market) ** 2 for m in market_returns) / (n - 1)
+    if var_market == 0:
+        return Decimal(0)
+    b = Decimal(str(cov)) / Decimal(str(var_market))
+    if b == 0:
+        return Decimal(0)
+    excess = Decimal(str(mean_asset)) - mean_rf
+    result = excess / b
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def r_squared(asset_returns: list[float], market_returns: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+    if len(asset_returns) != len(market_returns) or len(asset_returns) < 2:
+        raise ValueError("Need equal-length series with at least 2 values")
+    n = len(asset_returns)
+    mean_asset = sum(asset_returns) / n
+    mean_market = sum(market_returns) / n
+    cov = sum((a - mean_asset) * (m - mean_market) for a, m in zip(asset_returns, market_returns)) / (n - 1)
+    var_asset = sum((a - mean_asset) ** 2 for a in asset_returns) / (n - 1)
+    var_market = sum((m - mean_market) ** 2 for m in market_returns) / (n - 1)
+    if var_asset == 0 or var_market == 0:
+        return Decimal(0)
+    corr = cov / math.sqrt(var_asset * var_market)
+    result = Decimal(str(corr * corr))
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
