@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\tvm\__init__.py
+# hypothesis_version: 6.152.7
+
+['annuity_due', 'benefit_cost_ratio', 'discounted_payback', 'future_value', 'fv_annuity_due', 'fv_annuity_immediate', 'fv_continuous_single', 'fv_single_amount', 'growing_annuity', 'growing_perpetuity', 'irr', 'irr_annual', 'irr_approximate', 'irr_monthly', 'irr_npv_profile', 'irr_semi_annual', 'irr_with_bisection', 'mirr', 'multiple_irr_check', 'npv', 'npv_annual', 'npv_at_date', 'npv_continuous', 'npv_perpetuity', 'npv_profile', 'npv_semi_annual', 'npv_series', 'payback', 'payback_period_years', 'payback_ratio', 'perpetuity', 'perpetuity_due', 'present_value', 'profitability_index', 'xirr', 'xnpv']
