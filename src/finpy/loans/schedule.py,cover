@@ -1,0 +1,136 @@
+> from decimal import Decimal, ROUND_HALF_UP
+> from typing import Optional
+  
+  
+> def amortization_schedule(principal: float, annual_rate: float, years: float, payments_per_year: int = 12, *, ndigits: Optional[int] = None) -> list[dict[str, Decimal]]:
+!     n = int(years * payments_per_year)
+!     r = Decimal(str(annual_rate)) / Decimal(str(payments_per_year))
+!     pv = Decimal(str(principal))
+!     one = Decimal(1)
+!     if r == 0:
+!         pmt = pv / Decimal(str(n))
+!     else:
+!         pmt = pv * r * (one + r) ** n / ((one + r) ** n - one)
+!     schedule = []
+!     balance = pv
+!     for period in range(1, n + 1):
+!         interest = balance * r
+!         principal_part = pmt - interest
+!         balance -= principal_part
+!         if period == n:
+!             principal_part += balance
+!             interest = Decimal(0)
+!             pmt = principal_part
+!             balance = Decimal(0)
+!         if balance < 0:
+!             balance = Decimal(0)
+!         entry = {"period": Decimal(str(period)), "payment": pmt, "interest": interest, "principal": principal_part, "balance": balance}
+!         if ndigits is not None:
+!             entry = {k: v.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP) for k, v in entry.items()}
+!         schedule.append(entry)
+!     return schedule
+  
+  
+> def outstanding_balance(principal: float, annual_rate: float, years: float, payments_made: int, payments_per_year: int = 12, *, ndigits: Optional[int] = None) -> Decimal:
+!     n = int(years * payments_per_year)
+!     r = Decimal(str(annual_rate)) / Decimal(str(payments_per_year))
+!     pv = Decimal(str(principal))
+!     one = Decimal(1)
+!     if r == 0:
+!         pmt = pv / Decimal(str(n))
+!         bal = pv - pmt * Decimal(str(payments_made))
+!     else:
+!         pmt = pv * r * (one + r) ** n / ((one + r) ** n - one)
+!         bal = pv * (one + r) ** Decimal(str(payments_made)) - pmt * ((one + r) ** Decimal(str(payments_made)) - one) / r
+!     if bal < 0:
+!         bal = Decimal(0)
+!     if ndigits is not None:
+!         bal = bal.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return bal
+  
+  
+> def total_interest(principal: float, annual_rate: float, years: float, payments_per_year: int = 12, *, ndigits: Optional[int] = None) -> Decimal:
+!     n = int(years * payments_per_year)
+!     r = Decimal(str(annual_rate)) / Decimal(str(payments_per_year))
+!     pv = Decimal(str(principal))
+!     one = Decimal(1)
+!     if r == 0:
+!         total = Decimal(0)
+!     else:
+!         pmt = pv * r * (one + r) ** n / ((one + r) ** n - one)
+!         total = pmt * Decimal(str(n)) - pv
+!     if ndigits is not None:
+!         total = total.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return total
+  
+  
+> def monthly_payment(principal: float, annual_rate: float, years: float, payments_per_year: int = 12) -> Decimal:
+!     n = int(years * payments_per_year)
+!     r = Decimal(str(annual_rate)) / Decimal(str(payments_per_year))
+!     pv = Decimal(str(principal))
+!     one = Decimal(1)
+!     if r == 0:
+!         return pv / Decimal(str(n))
+!     return pv * r * (one + r) ** n / ((one + r) ** n - one)
+  
+  
+> def interest_only_payment(principal: float, annual_rate: float, payments_per_year: int = 12) -> Decimal:
+!     r = Decimal(str(annual_rate)) / Decimal(str(payments_per_year))
+!     return Decimal(str(principal)) * r
+  
+  
+> def balloon_payment(principal: float, annual_rate: float, years: float, balloon_years: float, payments_per_year: int = 12) -> Decimal:
+!     n_total = int(balloon_years * payments_per_year)
+!     r = Decimal(str(annual_rate)) / Decimal(str(payments_per_year))
+!     pv = Decimal(str(principal))
+!     one = Decimal(1)
+!     if r == 0:
+!         return Decimal(0)
+!     pmt = pv * r * (one + r) ** n_total / ((one + r) ** n_total - one)
+!     remaining = n_total - int(years * payments_per_year)
+!     bal = pv * (one + r) ** Decimal(n_total) - pmt * ((one + r) ** Decimal(n_total) - one) / r
+!     if remaining > 0:
+!         bal = bal * (one + r) ** Decimal(remaining) - pmt * ((one + r) ** Decimal(remaining) - one) / r
+!     if bal < 0:
+!         bal = Decimal(0)
+!     return bal
+  
+  
+> def apr_from_apy(apy: Decimal, periods_per_year: int = 12) -> Decimal:
+!     if apy <= Decimal(-1):
+!         raise ValueError(f"apy must be > -1, got {apy}")
+!     one = Decimal(1)
+!     return ((one + apy) ** (Decimal(1) / Decimal(periods_per_year)) - one) * Decimal(periods_per_year)
+  
+  
+> def apy_from_apr(apr: Decimal, periods_per_year: int = 12) -> Decimal:
+!     if apr < 0:
+!         raise ValueError(f"apr must be non-negative, got {apr}")
+!     one = Decimal(1)
+!     return (one + apr / Decimal(periods_per_year)) ** Decimal(periods_per_year) - one
+  
+  
+> def loan_payoff_time(principal: float, annual_rate: float, payment: float, payments_per_year: int = 12) -> Decimal:
+!     r = Decimal(str(annual_rate)) / Decimal(str(payments_per_year))
+!     pv = Decimal(str(principal))
+!     pmt = Decimal(str(payment))
+!     if pmt <= pv * r:
+!         raise ValueError("payment is less than interest, loan will never be paid off")
+!     if r == 0:
+!         return pv / pmt
+!     one = Decimal(1)
+!     ratio = pmt / (pmt - pv * r)
+!     return ratio.ln() / (one + r).ln()
+  
+  
+> def amortization_summary(principal: float, annual_rate: float, years: float, payments_per_year: int = 12, *, ndigits: Optional[int] = None) -> dict[str, Decimal]:
+!     schedule = amortization_schedule(principal, annual_rate, years, payments_per_year, ndigits=ndigits)
+!     total_paid = sum((entry["payment"] for entry in schedule), Decimal(0))
+!     total_int = sum((entry["interest"] for entry in schedule), Decimal(0))
+!     first_year_int = sum((entry["interest"] for entry in schedule[:payments_per_year]), Decimal(0))
+!     return {
+!         "total_paid": total_paid,
+!         "total_interest": total_int,
+!         "first_year_interest": first_year_int,
+!         "num_payments": Decimal(len(schedule)),
+!     }
