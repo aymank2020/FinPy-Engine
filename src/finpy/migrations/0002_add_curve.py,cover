@@ -1,0 +1,21 @@
+> """Migration 0002: Add yield curve. Extends the schema to include an optional 'yield_curve' field alongside the existing result data. This enables bond analytics to be serialized with curve metadata."""
+  
+> from finpy.core.errors import MigrationError
+  
+> SCHEMA_VERSION = 2
+> DESCRIPTION = "Extends version 1 schema with optional 'yield_curve' field to support serialization of yield curve metadata alongside result data"
+  
+  
+> def upgrade(payload: dict) -> dict:
+>     if "data" not in payload or "version" not in payload:
+>         raise MigrationError("invalid payload for migration 0002")
+>     data = payload["data"]
+>     data.setdefault("yield_curve", None)
+>     return {"version": 2, "data": data}
+  
+  
+> def downgrade(payload: dict) -> dict:
+>     if not isinstance(payload, dict) or "data" not in payload:
+>         raise MigrationError("invalid schema-2 payload")
+>     data = {k: v for k, v in payload["data"].items() if k != "yield_curve"}
+>     return {"version": 1, "data": data}

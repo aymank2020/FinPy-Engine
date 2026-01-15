@@ -1,0 +1,49 @@
+> from decimal import Decimal, DecimalException
+> from finpy.core.types import Result
+> from finpy.core.errors import SchemaValidationError
+  
+  
+> def validate_result(data: dict) -> Result:
+!     if "value" not in data:
+!         raise SchemaValidationError("result must have a 'value' field")
+!     try:
+!         return Result(value=Decimal(str(data["value"])), label=str(data.get("label", "")))
+!     except (ValueError, TypeError, DecimalException) as e:
+!         raise SchemaValidationError(str(e))
+  
+  
+> def dump_result(r: Result) -> dict:
+!     return {"value": str(r.value), "label": r.label}
+  
+  
+> def load_result(data: dict) -> Result:
+!     return validate_result(data)
+  
+  
+> def validate_result_list(data_list: list[dict]) -> list[Result]:
+!     return [validate_result(d) for d in data_list]
+  
+  
+> def dump_result_list(result_list: list[Result]) -> list[dict]:
+!     return [dump_result(r) for r in result_list]
+  
+  
+> def result_to_json(r: Result) -> str:
+!     import json
+!     return json.dumps(dump_result(r))
+  
+  
+> def result_from_json(json_str: str) -> Result:
+!     import json
+!     data = json.loads(json_str)
+!     return validate_result(data)
+  
+  
+> def result_table(results: list[Result]) -> str:
+!     lines = []
+!     lines.append(f"{'Label':<20} {'Value':<15}")
+!     lines.append("-" * 35)
+!     for r in results:
+!         label = r.label if r.label else ""
+!         lines.append(f"{label:<20} {str(r.value):<15}")
+!     return "\n".join(lines)

@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\fx\spot.py
+# hypothesis_version: 6.152.7
+
+[10000, 'ask', 'bid', 'mid', 'spread']
