@@ -1,0 +1,181 @@
+> class FinPyError(Exception):
+>     pass
+  
+  
+> class InvalidCashflowError(FinPyError):
+>     pass
+  
+  
+> class InvalidInstrumentError(FinPyError):
+>     pass
+  
+  
+> class NoSolutionFoundError(FinPyError):
+>     pass
+  
+  
+> class UnknownCurrencyError(FinPyError):
+>     pass
+  
+  
+> class RateNotAvailableError(FinPyError):
+>     pass
+  
+  
+> class SchemaValidationError(FinPyError):
+>     pass
+  
+  
+> class MigrationError(FinPyError):
+>     pass
+  
+  
+> class InvalidTradeError(FinPyError):
+>     def __init__(self, message: str = "", trade_id: str = ""):
+!         self.trade_id = trade_id
+!         super().__init__(message)
+  
+  
+> class InsufficientDataError(FinPyError):
+>     def __init__(self, message: str = "", required_points: int = 0, available: int = 0):
+!         self.required_points = required_points
+!         self.available = available
+!         super().__init__(message)
+  
+  
+> class InvalidParameterError(FinPyError):
+>     def __init__(self, message: str = "", parameter_name: str = ""):
+!         self.parameter_name = parameter_name
+!         super().__init__(message)
+  
+  
+> class InvalidPortfolioError(FinPyError):
+>     pass
+  
+  
+> class InvalidPositionError(FinPyError):
+>     pass
+  
+  
+> class ConvergenceError(FinPyError):
+>     def __init__(self, message: str = "", iterations: int = 0, tolerance: float = 0.0):
+!         self.iterations = iterations
+!         self.tolerance = tolerance
+!         super().__init__(message)
+  
+  
+> class ValuationError(FinPyError):
+>     pass
+  
+  
+> class MarketDataError(FinPyError):
+>     def __init__(self, message: str = "", symbol: str = ""):
+!         self.symbol = symbol
+!         super().__init__(message)
+  
+  
+> class CurveConstructionError(FinPyError):
+>     pass
+  
+  
+> class InterpolationError(FinPyError):
+>     pass
+  
+  
+> class DateMismatchError(FinPyError):
+>     def __init__(self, message: str = "", expected: str = "", actual: str = ""):
+!         self.expected = expected
+!         self.actual = actual
+!         super().__init__(message)
+  
+  
+> class NotImplementedInModeError(FinPyError):
+>     def __init__(self, message: str = "", mode: str = ""):
+!         self.mode = mode
+!         super().__init__(message)
+  
+  
+> class NegativeRateError(FinPyError):
+>     pass
+  
+  
+> class DivisionByZeroError(FinPyError):
+>     pass
+  
+  
+> class CalculationError(FinPyError):
+>     pass
+  
+  
+> class DataNotFoundError(FinPyError):
+>     def __init__(self, message: str = "", key: str = ""):
+!         self.key = key
+!         super().__init__(message)
+  
+  
+> class UnsupportedModeError(FinPyError):
+>     def __init__(self, message: str = "", mode: str = ""):
+!         self.mode = mode
+!         super().__init__(message)
+  
+  
+> class PeriodMismatchError(FinPyError):
+>     def __init__(self, message: str = "", expected: int = 0, actual: int = 0):
+!         self.expected = expected
+!         self.actual = actual
+!         super().__init__(message)
+  
+  
+> class ValidationAggregateError(FinPyError):
+>     def __init__(self, message: str = "", errors: list[Exception] | None = None):
+!         self.errors = errors or []
+!         super().__init__(message)
+  
+  
+> class CashflowStructureError(FinPyError):
+>     pass
+  
+  
+> class PriceOutOfRangeError(FinPyError):
+>     pass
+  
+  
+> class TimeSeriesError(FinPyError):
+>     pass
+  
+  
+> class OverlappingDataError(FinPyError):
+>     pass
+  
+  
+> class InvalidDateError(FinPyError):
+>     def __init__(self, message: str = "", date_str: str = ""):
+!         self.date_str = date_str
+!         super().__init__(message)
+  
+  
+> class BenchmarkMismatchError(FinPyError):
+>     pass
+  
+  
+> class InsufficientObservationsError(FinPyError):
+>     def __init__(self, message: str = "", required: int = 0, available: int = 0):
+!         self.required = required
+!         self.available = available
+!         super().__init__(message)
+  
+  
+> class OptimizationError(FinPyError):
+>     pass
+  
+  
+> class ConfigurationError(FinPyError):
+>     pass
+  
+  
+> class FileFormatError(FinPyError):
+>     pass
+  
+  
+> class ImportError(FinPyError):
+>     pass
