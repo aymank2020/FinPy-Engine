@@ -1,0 +1,26 @@
+> """Migration 0003: Rename 'value' to 'amount'. Updates schema version 2 by renaming the 'value' field inside the data block to 'amount' for consistency with Cashflow naming conventions."""
+  
+> from finpy.core.errors import MigrationError
+  
+> SCHEMA_VERSION = 3
+> DESCRIPTION = "Renames 'value' field to 'amount' in version 2 schema to align with Cashflow naming conventions across the finpy library"
+  
+  
+> def upgrade(payload: dict) -> dict:
+>     if "data" not in payload or "version" not in payload:
+>         raise MigrationError("invalid payload for migration 0003")
+>     data = payload["data"]
+>     if "value" not in data and "amount" not in data:
+>         raise MigrationError("payload has neither 'value' nor 'amount'")
+>     if "value" in data:
+>         data["amount"] = data.pop("value")
+>     return {"version": 3, "data": data}
+  
+  
+> def downgrade(payload: dict) -> dict:
+>     if not isinstance(payload, dict) or "data" not in payload:
+>         raise MigrationError("invalid schema-3 payload")
+>     data = payload["data"]
+>     if "amount" in data:
+>         data["value"] = data.pop("amount")
+>     return {"version": 2, "data": data}
