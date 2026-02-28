@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\loans\schedule.py
+# hypothesis_version: 6.152.7
+
+['balance', 'first_year_interest', 'interest', 'num_payments', 'payment', 'period', 'principal', 'total_interest', 'total_paid']

@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\core\compounding.py
+# hypothesis_version: 6.152.7
+
+[114, 144, 365, 'annual', 'continuous', 'daily', 'monthly', 'quarterly', 'semi-annual', 'weekly']
