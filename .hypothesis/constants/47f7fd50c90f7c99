@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\loans\refinance.py
+# hypothesis_version: 6.152.7
+
+[-0.9999, 0.0, 1e-10, 0.01, 1000, 'breakeven_months', 'five_year_savings', 'one_year_savings']
