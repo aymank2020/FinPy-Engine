@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\core\utils.py
+# hypothesis_version: 6.152.7
+
+[100, 365, 366, 400, '0.25', '0.75', '1.5', 'day', 'division by zero', 'month', 'value', 'year']
