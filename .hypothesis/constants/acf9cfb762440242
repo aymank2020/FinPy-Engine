@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\loans\prepayment.py
+# hypothesis_version: 6.152.7
+
+[1000, 'balance_after', 'balance_before', 'interest_saved', 'lump_sum', 'new_balance', 'new_interest', 'new_payment', 'new_periods', 'original_balance', 'original_interest', 'original_payment', 'original_periods', 'prepayment']
