@@ -1,0 +1,83 @@
+> from decimal import Decimal, ROUND_HALF_UP
+> from typing import Optional
+  
+  
+> def autocorrelation(returns: list[float], lag: int = 1, *, ndigits: Optional[int] = None) -> Decimal:
+!     if lag == 0:
+!         return Decimal(1)
+!     if len(returns) < lag + 2:
+!         raise ValueError("Need at least lag+2 returns")
+!     n = len(returns)
+!     mean = sum(returns) / n
+!     num = sum((returns[i] - mean) * (returns[i - lag] - mean) for i in range(lag, n))
+!     den = sum((returns[i] - mean) ** 2 for i in range(n))
+!     if den < 1e-15:
+!         return Decimal(0)
+!     result = Decimal(str(num)) / Decimal(str(den))
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def autocorrelation_matrix(returns: list[float], max_lag: int = 5, *, ndigits: Optional[int] = None) -> dict[int, Decimal]:
+!     if max_lag < 1:
+!         raise ValueError("max_lag must be at least 1")
+!     result: dict[int, Decimal] = {}
+!     for lag in range(1, max_lag + 1):
+!         try:
+!             result[lag] = autocorrelation(returns, lag, ndigits=ndigits)
+!         except ValueError:
+!             result[lag] = Decimal(0)
+!     return result
+  
+  
+> def ljung_box_statistic(returns: list[float], max_lag: int = 5) -> dict[int, Decimal]:
+!     if len(returns) < 2:
+!         raise ValueError("Need at least 2 returns")
+!     n = Decimal(len(returns))
+!     result: dict[int, Decimal] = {}
+!     for lag in range(1, max_lag + 1):
+!         try:
+!             acf = autocorrelation(returns, lag)
+!         except ValueError:
+!             acf = Decimal(0)
+!         stat = n * (n + Decimal(2)) * sum((acf ** 2 / (n - Decimal(k))) for k in range(1, lag + 1))
+!         result[lag] = stat
+!     return result
+  
+  
+> def partial_autocorrelation(returns: list[float], lag: int = 1, *, ndigits: Optional[int] = None) -> Decimal:
+!     if lag == 1:
+!         return autocorrelation(returns, 1, ndigits=ndigits)
+!     n = len(returns)
+!     if n < lag + 2:
+!         raise ValueError("Need at least lag+2 returns")
+!     mean = sum(returns) / n
+!     centered = [r - mean for r in returns]
+!     import math
+!     coeffs = [0.0] * (lag + 1)
+!     coeffs[0] = 1.0
+!     variance = sum(c * c for c in centered) / n
+!     if variance == 0:
+!         return Decimal(0)
+!     acvf = [0.0] * (lag + 1)
+!     for k in range(lag + 1):
+!         acvf[k] = sum(centered[i] * centered[i + k] for i in range(n - k)) / n
+!     for i in range(1, lag + 1):
+!         phi = acvf[i]
+!         for j in range(1, i):
+!             phi -= coeffs[j] * acvf[i - j]
+!         denom = acvf[0]
+!         for j in range(1, i):
+!             denom -= coeffs[j] * acvf[j]
+!         if denom != 0:
+!             phi /= denom
+!         else:
+!             phi = 0.0
+!         coeffs[i] = phi
+!         for j in range(1, i):
+!             coeffs[j] -= phi * coeffs[i - j]
+!     result = Decimal(str(coeffs[lag]))
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
