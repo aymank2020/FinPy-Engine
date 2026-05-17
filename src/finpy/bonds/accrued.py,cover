@@ -1,0 +1,174 @@
+> from decimal import Decimal, ROUND_HALF_UP
+> from typing import Optional
+  
+  
+> def accrued_interest(face_value: float, coupon_rate: float, days_since_last_coupon: int, days_in_coupon_period: int = 182, *, ndigits: Optional[int] = None) -> Decimal:
+!     ai = (
+!         Decimal(str(face_value)) * Decimal(str(coupon_rate))
+!         * Decimal(str(days_since_last_coupon))
+!         / Decimal(str(days_in_coupon_period * 2))
+!     )
+!     if ndigits is not None:
+!         ai = ai.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return ai
+  
+  
+> def days_between_dates(start_date: str, end_date: str) -> int:
+!     y1 = int(start_date[0:4])
+!     m1 = int(start_date[5:7])
+!     d1 = int(start_date[8:10])
+!     y2 = int(end_date[0:4])
+!     m2 = int(end_date[5:7])
+!     d2 = int(end_date[8:10])
+!     def _is_leap(year):
+!         return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
+!     def _days_in_year(year):
+!         return 366 if _is_leap(year) else 365
+!     def _day_of_year(year, month, day):
+!         dim = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+!         if _is_leap(year):
+!             dim[1] = 29
+!         return sum(dim[:month - 1]) + day
+!     if y1 == y2:
+!         return _day_of_year(y2, m2, d2) - _day_of_year(y1, m1, d1)
+!     total = _days_in_year(y1) - _day_of_year(y1, m1, d1)
+!     for y in range(y1 + 1, y2):
+!         total += _days_in_year(y)
+!     total += _day_of_year(y2, m2, d2)
+!     return total
+  
+  
+> def accrued_interest_actual_actual(face_value: float, coupon_rate: float, settlement_date: str, last_coupon_date: str, next_coupon_date: str, *, ndigits: Optional[int] = None) -> Decimal:
+!     days_in_period = days_between_dates(last_coupon_date, next_coupon_date)
+!     days_accrued = days_between_dates(last_coupon_date, settlement_date)
+!     if days_in_period <= 0:
+!         days_in_period = 365
+!     if days_accrued < 0:
+!         days_accrued = 0
+!     if days_accrued > days_in_period:
+!         days_accrued = days_in_period
+!     ai = Decimal(str(face_value)) * Decimal(str(coupon_rate)) * Decimal(str(days_accrued)) / Decimal(str(days_in_period))
+!     if ndigits is not None:
+!         ai = ai.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return ai
+  
+  
+> def accrued_interest_30_360(face_value: float, coupon_rate: float, settlement_date: str, last_coupon_date: str, next_coupon_date: str, *, ndigits: Optional[int] = None) -> Decimal:
+!     y1 = int(last_coupon_date[0:4])
+!     m1 = int(last_coupon_date[5:7])
+!     d1 = int(last_coupon_date[8:10])
+!     y2 = int(settlement_date[0:4])
+!     m2 = int(settlement_date[5:7])
+!     d2 = int(settlement_date[8:10])
+!     if d1 == 31:
+!         d1 = 30
+!     if d2 == 31 and d1 >= 30:
+!         d2 = 30
+!     days = (y2 - y1) * 360 + (m2 - m1) * 30 + (d2 - d1)
+!     yn1 = int(next_coupon_date[0:4])
+!     mn1 = int(next_coupon_date[5:7])
+!     dn1 = int(next_coupon_date[8:10])
+!     if dn1 == 31:
+!         dn1 = 30
+!     days_in_period = (yn1 - y1) * 360 + (mn1 - m1) * 30 + (dn1 - d1)
+!     if days_in_period <= 0:
+!         days_in_period = 360
+!     if days < 0:
+!         days = 0
+!     if days > days_in_period:
+!         days = days_in_period
+!     ai = Decimal(str(face_value)) * Decimal(str(coupon_rate)) * Decimal(str(days)) / Decimal(str(days_in_period))
+!     if ndigits is not None:
+!         ai = ai.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return ai
+  
+  
+> def accrued_interest_actual_360(face_value: float, coupon_rate: float, settlement_date: str, last_coupon_date: str, next_coupon_date: str, *, ndigits: Optional[int] = None) -> Decimal:
+!     days_accrued = days_between_dates(last_coupon_date, settlement_date)
+!     if days_accrued < 0:
+!         days_accrued = 0
+!     ai = Decimal(str(face_value)) * Decimal(str(coupon_rate)) * Decimal(str(days_accrued)) / Decimal(360)
+!     if ndigits is not None:
+!         ai = ai.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return ai
+  
+  
+> def accrued_interest_actual_365(face_value: float, coupon_rate: float, settlement_date: str, last_coupon_date: str, next_coupon_date: str, *, ndigits: Optional[int] = None) -> Decimal:
+!     days_accrued = days_between_dates(last_coupon_date, settlement_date)
+!     if days_accrued < 0:
+!         days_accrued = 0
+!     ai = Decimal(str(face_value)) * Decimal(str(coupon_rate)) * Decimal(str(days_accrued)) / Decimal(365)
+!     if ndigits is not None:
+!         ai = ai.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return ai
+  
+  
+> def accrued_interest_30_360_isda(face_value: float, coupon_rate: float, settlement_date: str, last_coupon_date: str, next_coupon_date: str, *, ndigits: Optional[int] = None) -> Decimal:
+!     y1 = int(last_coupon_date[0:4])
+!     m1 = int(last_coupon_date[5:7])
+!     d1 = int(last_coupon_date[8:10])
+!     y2 = int(settlement_date[0:4])
+!     m2 = int(settlement_date[5:7])
+!     d2 = int(settlement_date[8:10])
+!     if d1 == 31:
+!         d1 = 30
+!     if d2 == 31:
+!         d2 = 30
+!     days = (y2 - y1) * 360 + (m2 - m1) * 30 + (d2 - d1)
+!     yn1 = int(next_coupon_date[0:4])
+!     mn1 = int(next_coupon_date[5:7])
+!     dn1 = int(next_coupon_date[8:10])
+!     if dn1 == 31:
+!         dn1 = 30
+!     days_in_period = (yn1 - y1) * 360 + (mn1 - m1) * 30 + (dn1 - d1)
+!     if days_in_period <= 0:
+!         days_in_period = 360
+!     if days < 0:
+!         days = 0
+!     if days > days_in_period:
+!         days = days_in_period
+!     ai = Decimal(str(face_value)) * Decimal(str(coupon_rate)) * Decimal(str(days)) / Decimal(str(days_in_period))
+!     if ndigits is not None:
+!         ai = ai.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return ai
+  
+  
+> def days_between_coupons(last_coupon_date: str, next_coupon_date: str) -> int:
+!     return days_between_dates(last_coupon_date, next_coupon_date)
+  
+  
+> def days_since_last_coupon(settlement_date: str, last_coupon_date: str) -> int:
+!     days = days_between_dates(last_coupon_date, settlement_date)
+!     return max(0, days)
+  
+  
+> def next_coupon_date(last_coupon_date: str, months_per_period: int = 6) -> str:
+!     y = int(last_coupon_date[0:4])
+!     m = int(last_coupon_date[5:7])
+!     d = int(last_coupon_date[8:10])
+!     m += months_per_period
+!     while m > 12:
+!         m -= 12
+!         y += 1
+!     dim = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+!     if d > dim[m - 1]:
+!         d = dim[m - 1]
+!     return f"{y:04d}-{m:02d}-{d:02d}"
+  
+  
+> def previous_coupon_date(next_coupon_date: str, months_per_period: int = 6) -> str:
+!     y = int(next_coupon_date[0:4])
+!     m = int(next_coupon_date[5:7])
+!     d = int(next_coupon_date[8:10])
+!     m -= months_per_period
+!     while m < 1:
+!         m += 12
+!         y -= 1
+!     dim = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+!     if d > dim[m - 1]:
+!         d = dim[m - 1]
+!     return f"{y:04d}-{m:02d}-{d:02d}"
+  
+  
+> def is_leap_year(year: int) -> bool:
+!     return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
