@@ -1,0 +1,110 @@
+> from decimal import Decimal, ROUND_HALF_UP
+> from typing import Optional
+> import math
+  
+  
+> def historical_var(returns: list[float], confidence_level: float = 0.95, *, ndigits: Optional[int] = None) -> Decimal:
+!     if not returns:
+!         raise ValueError("Returns list is empty")
+!     sorted_returns = sorted(returns)
+!     index = int((1 - confidence_level) * len(sorted_returns))
+!     if index >= len(sorted_returns):
+!         index = len(sorted_returns) - 1
+!     result = abs(Decimal(str(sorted_returns[index])))
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def historical_cvar(returns: list[float], confidence_level: float = 0.95, *, ndigits: Optional[int] = None) -> Decimal:
+!     if not returns:
+!         raise ValueError("Returns list is empty")
+!     sorted_returns = sorted(returns)
+!     cutoff = int((1 - confidence_level) * len(sorted_returns))
+!     if cutoff < 1:
+!         cutoff = 1
+!     tail = sorted_returns[:cutoff]
+!     avg_tail = sum(tail) / len(tail)
+!     result = abs(Decimal(str(avg_tail)))
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def historical_var_multiple_periods(returns: list[float], confidence_levels: list[float], *, ndigits: Optional[int] = None) -> dict[float, Decimal]:
+!     if not returns:
+!         raise ValueError("Returns list is empty")
+!     if not confidence_levels:
+!         raise ValueError("Confidence levels list is empty")
+!     sorted_returns = sorted(returns)
+!     results: dict[float, Decimal] = {}
+!     for cl in confidence_levels:
+!         if cl <= 0 or cl >= 1:
+!             raise ValueError(f"Confidence level must be between 0 and 1, got {cl}")
+!         index = int((1 - cl) * len(sorted_returns))
+!         if index >= len(sorted_returns):
+!             index = len(sorted_returns) - 1
+!         result = abs(Decimal(str(sorted_returns[index])))
+!         if ndigits is not None:
+!             result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!         results[cl] = result
+!     return results
+  
+  
+> def var_backtest(returns: list[float], var_estimates: list[float], confidence_level: float = 0.95, *, ndigits: Optional[int] = None) -> Decimal:
+!     if len(returns) != len(var_estimates):
+!         raise ValueError("Returns and VaR estimates must have the same length")
+!     if len(returns) < 2:
+!         raise ValueError("Need at least 2 observations")
+!     exceptions = 0
+!     for i, ret in enumerate(returns):
+!         if ret < -var_estimates[i]:
+!             exceptions += 1
+!     expected_exceptions = (1 - confidence_level) * len(returns)
+!     if expected_exceptions == 0:
+!         return Decimal(0)
+!     result = Decimal(str(exceptions)) / Decimal(str(expected_exceptions))
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def cvar_backtest(returns: list[float], cvar_estimates: list[float], confidence_level: float = 0.95, *, ndigits: Optional[int] = None) -> Decimal:
+!     if len(returns) != len(cvar_estimates):
+!         raise ValueError("Returns and CVaR estimates must have the same length")
+!     if len(returns) < 2:
+!         raise ValueError("Need at least 2 observations")
+!     total_shortfall = Decimal(0)
+!     count = 0
+!     for ret, cvar in zip(returns, cvar_estimates):
+!         if ret < -cvar:
+!             total_shortfall += Decimal(str(abs(ret) - cvar))
+!             count += 1
+!     if count == 0:
+!         return Decimal(0)
+!     result = total_shortfall / Decimal(str(count))
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
+  
+  
+> def expected_shortfall(returns: list[float], confidence_level: float = 0.95, *, ndigits: Optional[int] = None) -> Decimal:
+!     return historical_cvar(returns, confidence_level, ndigits=ndigits)
+  
+  
+> def marginal_var(portfolio_returns: list[float], asset_returns: list[float], confidence_level: float = 0.95, *, ndigits: Optional[int] = None) -> Decimal:
+!     if len(portfolio_returns) != len(asset_returns) or len(portfolio_returns) < 2:
+!         raise ValueError("Need equal-length series with at least 2 values")
+!     n = len(portfolio_returns)
+!     mean_port = sum(portfolio_returns) / n
+!     mean_asset = sum(asset_returns) / n
+!     cov = sum((p - mean_port) * (a - mean_asset) for p, a in zip(portfolio_returns, asset_returns)) / (n - 1)
+!     var_port = sum((p - mean_port) ** 2 for p in portfolio_returns) / (n - 1)
+!     if var_port == 0:
+!         return Decimal(0)
+!     port_var = historical_var(portfolio_returns, confidence_level)
+!     beta_asset = Decimal(str(cov)) / Decimal(str(var_port))
+!     result = beta_asset * port_var / Decimal(str(n))
+!     if ndigits is not None:
+!         result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+!     return result
