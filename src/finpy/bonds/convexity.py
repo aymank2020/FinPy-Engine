@@ -1,0 +1,62 @@
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Optional
+
+
+def convexity(face_value: float, coupon_rate: float, ytm: float, years_to_maturity: float, payments_per_year: int = 2, *, ndigits: Optional[int] = None) -> Decimal:
+    n = int(years_to_maturity * payments_per_year)
+    r = Decimal(str(ytm)) / Decimal(str(payments_per_year))
+    c = Decimal(str(coupon_rate)) / Decimal(str(payments_per_year))
+    fv = Decimal(str(face_value))
+    m = Decimal(str(payments_per_year))
+    one = Decimal(1)
+    coupon_pmt = c * fv
+    numerator = Decimal(0)
+    for t in range(1, n + 1):
+        cf = coupon_pmt if t < n else coupon_pmt + fv
+        t_factor = Decimal(str(t * (t + 1)))
+        numerator += t_factor * cf / (one + r) ** Decimal(str(t + 2))
+    denominator = coupon_pmt * (one - (one + r) ** (-n)) / r + fv / (one + r) ** n
+    result = numerator / denominator / (m * m)
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def convexity_adjustment(convexity_val: Decimal, yield_change: Decimal) -> Decimal:
+    return Decimal(0.5) * convexity_val * (yield_change ** 2)
+
+
+def effective_convexity(price_down: Decimal, price_up: Decimal, initial_price: Decimal, yield_change: Decimal) -> Decimal:
+    if initial_price == 0:
+        raise ValueError("initial_price must be non-zero")
+    if yield_change == 0:
+        raise ValueError("yield_change must be non-zero")
+    yc = abs(yield_change)
+    return (price_down + price_up - Decimal(2) * initial_price) / (initial_price * yc * yc)
+
+
+def price_change_estimate(duration: Decimal, convexity_val: Decimal, yield_change: Decimal) -> Decimal:
+    dur_effect = -duration * yield_change
+    conv_effect = Decimal(0.5) * convexity_val * (yield_change ** 2)
+    return dur_effect + conv_effect
+
+
+def approximate_convexity(face_value: float, coupon_rate: float, ytm: float, years_to_maturity: float, payments_per_year: int = 2, *, ndigits: Optional[int] = None) -> Decimal:
+    n = int(years_to_maturity * payments_per_year)
+    r = Decimal(str(ytm)) / Decimal(str(payments_per_year))
+    c = Decimal(str(coupon_rate)) / Decimal(str(payments_per_year))
+    fv = Decimal(str(face_value))
+    one = Decimal(1)
+    coupon_pmt = c * fv
+    base_price = coupon_pmt * (one - (one + r) ** (-n)) / r + fv / (one + r) ** n
+    shift = Decimal('0.0001')
+    r_up = r + shift
+    price_up = coupon_pmt * (one - (one + r_up) ** (-n)) / r_up + fv / (one + r_up) ** n
+    r_down = r - shift
+    if r_down <= 0:
+        return Decimal(0)
+    price_down = coupon_pmt * (one - (one + r_down) ** (-n)) / r_down + fv / (one + r_down) ** n
+    result = (price_up + price_down - Decimal(2) * base_price) / (base_price * shift * shift)
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result

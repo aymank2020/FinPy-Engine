@@ -1,0 +1,172 @@
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Optional
+from datetime import date
+
+
+def npv(rate: float, cash_flows: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    one = Decimal(1)
+    result = Decimal(0)
+    for t, cf in enumerate(cash_flows):
+        result += Decimal(str(cf)) / (one + r) ** Decimal(str(t))
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def npv_series(rate: float, cash_flows: list[float], *, ndigits: Optional[int] = None) -> list[Decimal]:
+    r = Decimal(str(rate))
+    one = Decimal(1)
+    results = []
+    running = Decimal(0)
+    for t, cf in enumerate(cash_flows):
+        running += Decimal(str(cf)) / (one + r) ** Decimal(str(t))
+        val = running
+        if ndigits is not None:
+            val = val.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+        results.append(val)
+    return results
+
+
+def npv_with_terminal_value(rate: float, cash_flows: list[float], terminal_value: float, terminal_growth_rate: float = 0.0, *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    g = Decimal(str(terminal_growth_rate))
+    tv = Decimal(str(terminal_value))
+    one = Decimal(1)
+    result = Decimal(0)
+    n = len(cash_flows)
+    for t, cf in enumerate(cash_flows):
+        result += Decimal(str(cf)) / (one + r) ** Decimal(str(t))
+    if r > g:
+        tv_discounted = tv / (one + r) ** Decimal(str(n - 1))
+    else:
+        tv_discounted = tv / (one + r) ** Decimal(str(n - 1))
+    result += tv_discounted
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def xnpv(rate: float, cash_flows: list[float], dates: list[date], *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    one = Decimal(1)
+    if len(cash_flows) != len(dates):
+        raise ValueError("cash_flows and dates must have the same length")
+    if len(cash_flows) == 0:
+        raise ValueError("At least one cash flow is required")
+    base_date = dates[0]
+    result = Decimal(0)
+    for cf, d in zip(cash_flows, dates):
+        days = (d - base_date).days
+        year_frac = Decimal(str(days)) / Decimal("365")
+        result += Decimal(str(cf)) / (one + r) ** year_frac
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def npv_perpetuity(rate: float, cash_flows: list[float], perpetuity_growth: float = 0.0, *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    g = Decimal(str(perpetuity_growth))
+    one = Decimal(1)
+    if len(cash_flows) == 0:
+        raise ValueError("At least one cash flow is required")
+    n = len(cash_flows)
+    result = Decimal(0)
+    for t, cf in enumerate(cash_flows):
+        result += Decimal(str(cf)) / (one + r) ** Decimal(str(t))
+    last_cf = Decimal(str(cash_flows[-1]))
+    if r > g:
+        terminal_value = last_cf * (one + g) / (r - g)
+    else:
+        terminal_value = last_cf / (r - g)
+        if r <= g:
+            raise ValueError("Rate must be greater than growth rate for perpetuity terminal value")
+    terminal_pv = terminal_value / (one + r) ** Decimal(str(n))
+    result += terminal_pv
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def npv_at_date(rate: float, cash_flows: list[float], target_date: int = 0, *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    target = Decimal(str(target_date))
+    one = Decimal(1)
+    result = Decimal(0)
+    for t, cf in enumerate(cash_flows):
+        shift = Decimal(str(t)) - target
+        result += Decimal(str(cf)) / (one + r) ** shift
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def npv_profile(cash_flows: list[float], rates: list[float], *, ndigits: Optional[int] = None) -> list[Decimal]:
+    results = []
+    for rate in rates:
+        results.append(npv(rate, cash_flows, ndigits=ndigits))
+    return results
+
+
+def npv_annual(rate: float, cash_flows: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+    return npv(rate, cash_flows, ndigits=ndigits)
+
+
+def npv_semi_annual(rate: float, cash_flows: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate)) / Decimal(2)
+    one = Decimal(1)
+    result = Decimal(0)
+    for t, cf in enumerate(cash_flows):
+        result += Decimal(str(cf)) / (one + r) ** Decimal(str(t))
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def npv_continuous(rate: float, cash_flows: list[float], times: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    if len(cash_flows) != len(times):
+        raise ValueError("cash_flows and times must have the same length")
+    result = Decimal(0)
+    for cf, t in zip(cash_flows, times):
+        result += Decimal(str(cf)) * (-r * Decimal(str(t))).exp()
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def npv_perpetuity_constant(pmt: float, rate: float, *, ndigits: Optional[int] = None) -> Decimal:
+    r = Decimal(str(rate))
+    p = Decimal(str(pmt))
+    if r <= 0:
+        raise ValueError("Rate must be positive for perpetuity calculation")
+    result = p / r
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def npv_from_discount_factors(cash_flows: list[float], discount_factors: list[float], *, ndigits: Optional[int] = None) -> Decimal:
+    if len(cash_flows) != len(discount_factors):
+        raise ValueError("cash_flows and discount_factors must have the same length")
+    result = sum(Decimal(str(cf)) * Decimal(str(df)) for cf, df in zip(cash_flows, discount_factors))
+    if ndigits is not None:
+        result = result.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+    return result
+
+
+def npv_series_with_terminal(rate: float, cash_flows: list[float], terminal_value: float, *, ndigits: Optional[int] = None) -> list[Decimal]:
+    r = Decimal(str(rate))
+    tv = Decimal(str(terminal_value))
+    one = Decimal(1)
+    results = []
+    running = Decimal(0)
+    n = len(cash_flows)
+    for t, cf in enumerate(cash_flows):
+        running += Decimal(str(cf)) / (one + r) ** Decimal(str(t))
+        val = running + tv / (one + r) ** Decimal(str(n - 1))
+        if ndigits is not None:
+            val = val.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
+        results.append(val)
+    return results
