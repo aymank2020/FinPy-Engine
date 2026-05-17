@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\bonds\dirty_price.py
+# hypothesis_version: 6.152.7
+
+[0.5, 1.0, 182, 364, 'accrued_interest', 'clean_price', 'dirty_price']

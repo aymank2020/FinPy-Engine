@@ -1,0 +1,4 @@
+# file: \\wsl.localhost\Ubuntu\home\ayman\.openclaw\workspace\FinPy-Engine\src\finpy\returns\__init__.py
+# hypothesis_version: 6.152.7
+
+['annualized_return', 'annualized_std', 'arithmetic_mean', 'autocorrelation', 'calmar_ratio', 'cumulative_return', 'downside_std', 'ewm_mean', 'ewm_std', 'gain_loss_ratio', 'geometric_mean', 'information_ratio', 'kurtosis', 'ljung_box_statistic', 'log_returns', 'max_drawdown', 'rolling_corr', 'rolling_cov', 'rolling_kurtosis', 'rolling_max', 'rolling_mean', 'rolling_median', 'rolling_min', 'rolling_skew', 'rolling_std', 'rolling_sum', 'rolling_var', 'rolling_window', 'semivariance', 'simple_returns', 'skewness', 'std', 'total_return', 'tracking_error', 'ulcer_index', 'variance']
