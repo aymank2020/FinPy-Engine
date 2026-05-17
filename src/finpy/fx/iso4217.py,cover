@@ -1,0 +1,57 @@
+> _VALID_CURRENCIES = {
+>     "USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD",
+>     "SEK", "NOK", "DKK", "CNY", "INR", "BRL", "MXN", "SGD",
+>     "HKD", "KRW", "ZAR", "TRY", "SAR", "AED", "EGP",
+> }
+  
+> _CURRENCY_NAMES = {
+>     "USD": "US Dollar", "EUR": "Euro", "GBP": "British Pound",
+>     "JPY": "Japanese Yen", "CHF": "Swiss Franc", "CAD": "Canadian Dollar",
+>     "AUD": "Australian Dollar", "NZD": "New Zealand Dollar",
+>     "SEK": "Swedish Krona", "NOK": "Norwegian Krone", "DKK": "Danish Krone",
+>     "CNY": "Chinese Yuan", "INR": "Indian Rupee", "BRL": "Brazilian Real",
+>     "MXN": "Mexican Peso", "SGD": "Singapore Dollar", "HKD": "Hong Kong Dollar",
+>     "KRW": "South Korean Won", "ZAR": "South African Rand",
+>     "TRY": "Turkish Lira", "SAR": "Saudi Riyal", "AED": "UAE Dirham",
+>     "EGP": "Egyptian Pound",
+> }
+  
+> _CURRENCY_SYMBOLS = {
+>     "USD": "$", "EUR": "\u20ac", "GBP": "\u00a3", "JPY": "\u00a5",
+>     "CHF": "Fr", "CAD": "C$", "AUD": "A$", "NZD": "NZ$",
+>     "SEK": "kr", "NOK": "kr", "DKK": "kr", "CNY": "\u5143",
+>     "INR": "\u20b9", "BRL": "R$", "MXN": "Mex$", "SGD": "S$",
+>     "HKD": "HK$", "KRW": "\u20a9", "ZAR": "R", "TRY": "\u20ba",
+>     "SAR": "\ufdfc", "AED": "Dhs", "EGP": "E\u00a3",
+> }
+  
+  
+> def is_valid_currency(code: str) -> bool:
+!     return code.upper() in _VALID_CURRENCIES
+  
+  
+> def list_currencies() -> list[str]:
+!     return sorted(_VALID_CURRENCIES)
+  
+  
+> def currency_name(code: str) -> str:
+!     upper = code.upper()
+!     if upper not in _CURRENCY_NAMES:
+!         raise ValueError(f"Unknown currency code: {code}")
+!     return _CURRENCY_NAMES[upper]
+  
+  
+> def currency_symbol(code: str) -> str:
+!     upper = code.upper()
+!     if upper not in _CURRENCY_SYMBOLS:
+!         raise ValueError(f"Unknown currency code: {code}")
+!     return _CURRENCY_SYMBOLS[upper]
+  
+  
+> def add_currency(code: str, name: str, symbol: str = "") -> None:
+!     upper = code.upper()
+!     _VALID_CURRENCIES.add(upper)
+!     if name:
+!         _CURRENCY_NAMES[upper] = name
+!     if symbol:
+!         _CURRENCY_SYMBOLS[upper] = symbol
