@@ -1,0 +1,175 @@
+> from decimal import Decimal, ROUND_HALF_UP, getcontext
+> from typing import Optional
+  
+  
+> def compound(rate: Decimal, n: int, mode: str = "annual") -> Decimal:
+!     r = Decimal(str(rate))
+!     one = Decimal(1)
+!     if mode == "annual":
+!         return (one + r) ** n
+!     elif mode == "semi-annual":
+!         return (one + r / 2) ** (2 * n)
+!     elif mode == "quarterly":
+!         return (one + r / 4) ** (4 * n)
+!     elif mode == "monthly":
+!         return (one + r / 12) ** (12 * n)
+!     elif mode == "weekly":
+!         return (one + r / 52) ** (52 * n)
+!     elif mode == "daily":
+!         return (one + r / 365) ** (365 * n)
+!     elif mode == "continuous":
+!         return (r * Decimal(str(n))).exp()
+!     else:
+!         raise ValueError(f"unknown mode: {mode}")
+  
+  
+> def compound_factor(rate: Decimal, periods: int, mode: str = "annual") -> Decimal:
+!     if periods == 0:
+!         return Decimal(1)
+!     return compound(rate, periods, mode)
+  
+  
+> def effective_annual_rate(nominal: Decimal, periods_per_year: int) -> Decimal:
+!     if nominal == 0:
+!         return Decimal(0)
+!     one = Decimal(1)
+!     return (one + nominal / Decimal(periods_per_year)) ** Decimal(periods_per_year) - one
+  
+  
+> def nominal_from_effective(effective: Decimal, periods_per_year: int) -> Decimal:
+!     if effective <= Decimal(-1):
+!         raise ValueError(f"effective rate must be > -1, got {effective}")
+!     one = Decimal(1)
+!     return ((one + effective) ** (Decimal(1) / Decimal(periods_per_year)) - one) * Decimal(periods_per_year)
+  
+  
+> def continuous_equiv(nominal: Decimal, periods_per_year: int) -> Decimal:
+!     one = Decimal(1)
+!     ear = (one + nominal / Decimal(periods_per_year)) ** Decimal(periods_per_year) - one
+!     return (one + ear).ln()
+  
+  
+> def discrete_equiv(continuous_rate: Decimal, periods_per_year: int) -> Decimal:
+!     r = Decimal(str(continuous_rate))
+!     return (r.exp() - Decimal(1)) * Decimal(periods_per_year)
+  
+  
+> def doubling_time(rate: Decimal, mode: str = "annual") -> Decimal:
+!     if rate <= 0:
+!         raise ValueError(f"rate must be positive for doubling time, got {rate}")
+!     r = Decimal(str(rate))
+!     ln2 = Decimal(2).ln()
+!     if mode == "continuous":
+!         return ln2 / r
+!     one = Decimal(1)
+!     if mode == "annual":
+!         return ln2 / (one + r).ln()
+!     elif mode == "semi-annual":
+!         return ln2 / (Decimal(2) * (one + r / 2).ln())
+!     elif mode == "quarterly":
+!         return ln2 / (Decimal(4) * (one + r / 4).ln())
+!     elif mode == "monthly":
+!         return ln2 / (Decimal(12) * (one + r / 12).ln())
+!     elif mode == "daily":
+!         return ln2 / (Decimal(365) * (one + r / 365).ln())
+!     else:
+!         raise ValueError(f"unknown mode: {mode}")
+  
+  
+> def future_value(pv: Decimal, rate: Decimal, n: int, mode: str = "annual") -> Decimal:
+!     return pv * compound(rate, n, mode)
+  
+  
+> def present_value(fv: Decimal, rate: Decimal, n: int, mode: str = "annual") -> Decimal:
+!     return fv / compound(rate, n, mode)
+  
+  
+> def growth_rate(begin: Decimal, end: Decimal, periods: int) -> Decimal:
+!     if begin <= 0:
+!         raise ValueError(f"begin value must be positive, got {begin}")
+!     if periods <= 0:
+!         raise ValueError(f"periods must be positive, got {periods}")
+!     return (end / begin) ** (Decimal(1) / Decimal(periods)) - Decimal(1)
+  
+  
+> def annualized_return(total_return: Decimal, years: Decimal) -> Decimal:
+!     if total_return <= Decimal(-1):
+!         raise ValueError(f"total_return must be > -1, got {total_return}")
+!     if years <= 0:
+!         raise ValueError(f"years must be positive, got {years}")
+!     one = Decimal(1)
+!     return (one + total_return) ** (one / years) - one
+  
+  
+> def ln(x: Decimal) -> Decimal:
+!     if x <= 0:
+!         raise ValueError(f"ln argument must be positive, got {x}")
+!     return x.ln()
+  
+  
+> def exp(x: Decimal) -> Decimal:
+!     return x.exp()
+  
+  
+> def rule_of_72(rate_pct: Decimal) -> Decimal:
+!     if rate_pct <= 0:
+!         raise ValueError(f"rate_pct must be positive, got {rate_pct}")
+!     return Decimal(72) / rate_pct
+  
+  
+> def rule_of_114(rate_pct: Decimal) -> Decimal:
+!     if rate_pct <= 0:
+!         raise ValueError(f"rate_pct must be positive, got {rate_pct}")
+!     return Decimal(114) / rate_pct
+  
+  
+> def rule_of_144(rate_pct: Decimal) -> Decimal:
+!     if rate_pct <= 0:
+!         raise ValueError(f"rate_pct must be positive, got {rate_pct}")
+!     return Decimal(144) / rate_pct
+  
+  
+> def compounding_frequency(mode: str) -> int:
+!     frequencies = {
+!         "annual": 1, "semi-annual": 2, "quarterly": 4,
+!         "monthly": 12, "weekly": 52, "daily": 365,
+!     }
+!     if mode not in frequencies:
+!         raise ValueError(f"unknown mode: {mode}")
+!     return frequencies[mode]
+  
+  
+> def periodic_rate(annual_rate: Decimal, periods_per_year: int) -> Decimal:
+!     return annual_rate / Decimal(periods_per_year)
+  
+  
+> def annual_rate_from_periodic(periodic_rate_val: Decimal, periods_per_year: int) -> Decimal:
+!     return periodic_rate_val * Decimal(periods_per_year)
+  
+  
+> def holding_period_return(begin_price: Decimal, end_price: Decimal, dividends: Decimal = Decimal(0)) -> Decimal:
+!     if begin_price <= 0:
+!         raise ValueError(f"begin_price must be positive, got {begin_price}")
+!     return (end_price - begin_price + dividends) / begin_price
+  
+  
+> def real_rate_of_return(nominal_rate: Decimal, inflation_rate: Decimal) -> Decimal:
+!     one = Decimal(1)
+!     return (one + nominal_rate) / (one + inflation_rate) - one
+  
+  
+> def force_of_interest(annual_rate: Decimal) -> Decimal:
+!     one = Decimal(1)
+!     return (one + annual_rate).ln()
+  
+  
+> def discount_rate_from_interest(interest_rate: Decimal) -> Decimal:
+!     one = Decimal(1)
+!     return interest_rate / (one + interest_rate)
+  
+  
+> def interest_rate_from_discount(discount_rate: Decimal) -> Decimal:
+!     one = Decimal(1)
+!     if discount_rate >= one:
+!         raise ValueError(f"discount_rate must be < 1, got {discount_rate}")
+!     return discount_rate / (one - discount_rate)
