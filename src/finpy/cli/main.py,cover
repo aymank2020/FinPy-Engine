@@ -1,0 +1,55 @@
+> import os
+> import sys
+> import argparse
+> from finpy import __version__
+> from finpy.cli.commands import register_subparsers
+> from finpy.core.errors import FinPyError
+  
+  
+> def main(argv: list[str] | None = None) -> int:
+!     if argv is None:
+!         argv = sys.argv[1:]
+!     parser = argparse.ArgumentParser(prog="finpy", description="FinPy-Engine financial calculations")
+!     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+!     parser.add_argument("--debug", action="store_true", help="enable debug output")
+!     parser.add_argument("--quiet", "-q", action="store_true", help="suppress non-essential output")
+!     subparsers = parser.add_subparsers(dest="command", required=True)
+!     register_subparsers(subparsers)
+!     try:
+!         args = parser.parse_args(argv)
+!         if args.debug:
+!             os.environ["FINPY_DEBUG"] = "1"
+!         if hasattr(args, "func"):
+!             result = args.func(args)
+!             if result is not None:
+!                 formatted = result
+!                 if isinstance(result, dict):
+!                     formatted = "\n".join(f"{k}: {v}" for k, v in result.items())
+!                 elif isinstance(result, list) and result and isinstance(result[0], dict):
+!                     formatted = ""
+!                     for item in result:
+!                         formatted += "\t".join(str(v) for v in item.values()) + "\n"
+!                 print(formatted)
+!             return 0
+!         parser.print_help()
+!         return 2
+!     except FinPyError as e:
+!         print(f"Error: {e}", file=sys.stderr)
+!         if os.environ.get("FINPY_DEBUG") == "1":
+!             import traceback
+!             traceback.print_exc()
+!         return 1
+!     except ValueError as e:
+!         print(f"Value error: {e}", file=sys.stderr)
+!         return 1
+!     except SystemExit as e:
+!         return e.code
+  
+  
+> def entry_point() -> None:
+!     sys.exit(main())
+  
+  
+> if __name__ == "__main__":
+!     import os
+!     sys.exit(main())
