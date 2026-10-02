@@ -1,7 +1,7 @@
 from decimal import Decimal
 from datetime import date
 import pytest
-from hypothesis import given, strategies as st, assume, settings, HealthCheck
+from hypothesis import given, strategies as st, assume, settings, HealthCheck, example, note
 from finpy.tvm.irr import irr, xirr, modified_irr_with_reinvestment, irr_with_bisection
 from finpy.tvm.irr import multiple_irr_check, irr_npv_profile, irr_approximate, irr_annual
 from finpy.tvm.irr import irr_semi_annual, irr_monthly
@@ -254,10 +254,36 @@ def test_irr_roundtrip(cfs):
 
 @settings(suppress_health_check=[HealthCheck.filter_too_much])
 @given(st.lists(st.floats(min_value=-1000, max_value=-1), min_size=1).flatmap(lambda neg: st.lists(st.floats(min_value=1, max_value=1000), min_size=2, max_size=7).map(lambda pos: neg + pos)))
+@example(cfs=[-1.0] * 200 + [1.0] * 7)
+@example(cfs=[-1.0] * 300 + [1.0] * 7)
 def test_irr_bisection_roundtrip(cfs):
+    note(f"Cash flows: {cfs!r}")
+    tol = Decimal("1e-10")
     try:
         r = irr_with_bisection(cfs, low=-0.5, high=5.0)
-        npv_val = npv(float(r), cfs)
-        assert abs(npv_val) < Decimal("0.2")
     except (NoSolutionFoundError, ValueError):
-        pass
+        return
+    assert Decimal("-0.5") <= r <= Decimal("5.0")
+    npv_val = npv(float(r), cfs)
+    # The solver stops on NPV residual OR rate-bracket width. Long cash-flow
+    # series can have a large monetary residual despite an accurate rate.
+    # For these one-sign-change flows, a root within rate tolerance is
+    # independently witnessed by the public NPV changing sign around r.
+    if abs(npv_val) > tol:
+        assert npv(float(r - tol), cfs) >= 0
+        assert npv(float(r + tol), cfs) <= 0
+
+
+@pytest.mark.parametrize("negative_periods, reference_rate", [
+    (200, Decimal("-0.094276335573908331777680619436550392715785550272287600787272675172653388903977280547544205")),
+    (300, Decimal("-0.094276335736085207917418417792533585524307363692712759094842416946011071705426729707111017")),
+])
+def test_long_irr_bisection_rate_matches_independent_geometric_root(negative_periods, reference_rate):
+    # Independent 90-digit roots use the geometric-series NPV identity,
+    # (-1+2*q**m-q**(m+7))/(1-q), with q=1/(1+r), rather than finpy code.
+    cfs = [-1.0] * negative_periods + [1.0] * 7
+    tol = Decimal("1e-10")
+    rate = irr_with_bisection(cfs, low=-0.5, high=5.0)
+    assert abs(rate - reference_rate) < tol
+    assert npv(float(rate - tol), cfs) >= 0
+    assert npv(float(rate + tol), cfs) <= 0
