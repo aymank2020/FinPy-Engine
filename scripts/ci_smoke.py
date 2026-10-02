@@ -45,6 +45,18 @@ def main() -> None:
         if not isinstance(score, Decimal) or not score.is_finite() or score != expected:
             raise RuntimeError(f"Installed public legacy Sharpe score failed: {score}")
     print("PASS: installed public Sharpe module returns finite legacy scores", flush=True)
+    from finpy.risk import deflated_sharpe_probability_from_stats, probabilistic_sharpe
+
+    probability = deflated_sharpe_probability_from_stats(
+        2.5 / 250**0.5, n_observations=1250, skewness=-3, raw_kurtosis=10,
+        trial_sharpe_variance=0.5 / 250, num_independent_trials=100,
+    )
+    if not isinstance(probability, Decimal) or abs(probability - Decimal("0.9003968344495116")) > Decimal("1e-12"):
+        raise RuntimeError(f"Installed DSR probability does not match the author example: {probability}")
+    psr = probabilistic_sharpe(returns, periods_per_year=252)
+    if not isinstance(psr, Decimal) or abs(psr - Decimal("0.8622279371626578")) > Decimal("1e-12"):
+        raise RuntimeError(f"Installed PSR did not preserve the native-frequency calculation: {psr}")
+    print("PASS: installed public probability exports, author DSR example and native-frequency PSR", flush=True)
     console = Path(sysconfig.get_path("scripts")) / ("finpy.exe" if os.name == "nt" else "finpy")
 
     version = run([str(console), "--version"])

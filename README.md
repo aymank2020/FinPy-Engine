@@ -26,6 +26,21 @@ print(present_value(flows, Decimal("0.05")))
 
 The existing single-flow call `present_value(amount, time, rate)` is supported.
 
+The probability API requires native-frequency statistics and variance across
+independent trial Sharpe estimates:
+
+```python
+from finpy.risk import deflated_sharpe_probability_from_stats
+
+probability = deflated_sharpe_probability_from_stats(
+    2.5 / 250**0.5, n_observations=1250, skewness=-3, raw_kurtosis=10,
+    trial_sharpe_variance=0.5 / 250, num_independent_trials=100,
+)
+```
+
+See [the probability model and compatibility note](docs/sharpe-probability-research.md).
+`deflated_sharpe_ratio` retains its separate legacy score contract.
+
 ## Development
 
 ```bash
