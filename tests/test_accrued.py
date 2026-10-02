@@ -88,7 +88,7 @@ class TestAccruedInterest30360:
 
     def test_ndigits(self):
         result = accrued_interest_30_360(1000, 0.05, "2024-06-15", "2024-01-15", "2024-07-15", ndigits=2)
-        assert result == pytest.approx(Decimal("41.67"), abs=0.01)
+        assert result == pytest.approx(Decimal("20.83"), abs=0.01)
 
 
 class TestAccruedInterestActual360:

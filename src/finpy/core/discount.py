@@ -7,6 +7,8 @@ they all hinge on the same compounding-mode plumbing.
 
 from decimal import Decimal, ROUND_HALF_UP
 
+from finpy.core.compounding import compound, compounding_frequency
+
 
 def _quantize(v, ndigits):
     if ndigits is None:
@@ -15,67 +17,70 @@ def _quantize(v, ndigits):
 
 
 def discount_factor(rate, t, mode="annual", *, ndigits=None) -> Decimal:
-    r = Decimal(str(rate))
-    one = Decimal(1)
-    n = Decimal(str(t))
-    if mode == "annual":
-        result = (one + r) ** (-n)
-    elif mode == "semi-annual":
-        result = (one + r / 2) ** (-2 * n)
-    elif mode == "continuous":
-        from math import exp
-        result = Decimal(str(exp(-float(r) * float(n))))
+    """Discount years at a nominal rate; bond-basis accepts days on a 365 basis.
+
+    money-market uses simple interest in years. bond-basis is a legacy mode
+    name for simple interest in days / 365, not a calendar day-count algorithm.
+    """
+    r, n = Decimal(str(rate)), Decimal(str(t))
+    if not r.is_finite() or not n.is_finite():
+        raise ValueError("rate and time must be finite")
+    if mode in {"money-market", "bond-basis"}:
+        years = n / 365 if mode == "bond-basis" else n
+        factor = Decimal(1) + r * years
+        if factor <= 0:
+            raise ValueError("simple-interest factor must be positive")
     else:
-        raise ValueError(f"unknown mode: {mode}")
-    return _quantize(result, ndigits)
+        factor = compound(r, n, mode)
+    return _quantize(Decimal(1) / factor, ndigits)
 
 
 def present_value_of_flow(amount, t, rate, mode="annual", *, ndigits=None) -> Decimal:
     return _quantize(Decimal(str(amount)) * discount_factor(rate, t, mode), ndigits)
 
 
-# Tests import a synonym `present_value` from this module distinct from the
-# one in tvm.present_value (different signature). This is the discount-factor
-# version: PV = amount * discount_factor(rate, t).
-def present_value(amount, t, rate, mode="annual", *, ndigits=None) -> Decimal:
-    return present_value_of_flow(amount, t, rate, mode, ndigits=ndigits)
+def present_value(amount, t, rate=None, mode="annual", *, ndigits=None) -> Decimal:
+    """Discount cash-flow pairs, or a single amount with an explicit rate.
+
+    ``present_value(flows, rate)`` aggregates (amount, time) pairs. The
+    existing ``present_value(amount, time, rate)`` form remains supported.
+    """
+    if rate is not None:
+        return present_value_of_flow(amount, t, rate, mode, ndigits=ndigits)
+    total = sum(
+        (present_value_of_flow(value, when, t, mode) for value, when in amount),
+        Decimal(0),
+    )
+    return _quantize(total, ndigits)
 
 
 def future_value_of_flow(amount, t, rate, mode="annual", *, ndigits=None) -> Decimal:
-    """Compound `amount` forward by t periods at `rate`."""
-    r = Decimal(str(rate))
-    one = Decimal(1)
-    n = Decimal(str(t))
-    if mode == "annual":
-        factor = (one + r) ** n
-    elif mode == "semi-annual":
-        factor = (one + r / 2) ** (2 * n)
-    elif mode == "continuous":
-        from math import exp
-        factor = Decimal(str(exp(float(r) * float(n))))
-    else:
-        raise ValueError(f"unknown mode: {mode}")
-    return _quantize(Decimal(str(amount)) * factor, ndigits)
+    """Compound an amount using the same conventions as discount_factor."""
+    return _quantize(Decimal(str(amount)) / discount_factor(rate, t, mode), ndigits)
 
 
-def discount_yield(price, face, days, *, ndigits=None) -> Decimal:
+def discount_yield(price, face, days, *, days_year=360, ndigits=None) -> Decimal:
     """T-bill discount yield: ((F-P)/F) * (360/days)."""
     p = Decimal(str(price))
     f = Decimal(str(face))
     if days <= 0:
         raise ValueError("days must be positive")
-    if p <= 0:
-        raise ValueError("price must be positive")
-    return _quantize((f - p) / f * Decimal(360) / Decimal(days), ndigits)
+    if p <= 0 or f <= 0 or days_year <= 0:
+        raise ValueError("price, face and days_year must be positive")
+    return _quantize((f - p) / f * Decimal(str(days_year)) / Decimal(str(days)), ndigits)
 
 
-def money_market_yield(discount_yield_value, days, *, ndigits=None) -> Decimal:
+def money_market_yield(discount_yield_value, days, *, days_year=360, ndigits=None) -> Decimal:
     """Convert a discount yield to a 360-day money-market yield."""
     if days <= 0:
         raise ValueError("days must be positive")
     dy = Decimal(str(discount_yield_value))
     bd = Decimal(str(days))
-    return _quantize(dy * (Decimal(360) / (Decimal(360) - dy * bd)), ndigits)
+    basis = Decimal(str(days_year))
+    denominator = basis - dy * bd
+    if basis <= 0 or denominator <= 0:
+        raise ValueError("days_year and implied price must be positive")
+    return _quantize(dy * basis / denominator, ndigits)
 
 
 def bond_equivalent_yield(price, face, days, *, ndigits=None) -> Decimal:
@@ -133,30 +138,32 @@ def current_yield(coupon, price, *, ndigits=None) -> Decimal:
     return _quantize(Decimal(str(coupon)) / p, ndigits)
 
 
-def macaulay_duration(flows, ytm, *, ndigits=None) -> Decimal:
-    """Macaulay duration over a list of (cashflow, t) tuples."""
+def macaulay_duration(flows, ytm, *, periods_per_year=1, ndigits=None) -> Decimal:
+    """PV-weighted time in years, using nominal annual yield and frequency."""
     if not flows:
         raise ValueError("flows is empty")
-    r = Decimal(str(ytm))
-    one = Decimal(1)
-    total_pv = Decimal(0)
-    weighted = Decimal(0)
+    m = Decimal(str(periods_per_year))
+    if m <= 0:
+        raise ValueError("periods_per_year must be positive")
+    base = Decimal(1) + Decimal(str(ytm)) / m
+    if base <= 0:
+        raise ValueError("periodic yield must exceed -1")
+    total_pv, weighted = Decimal(0), Decimal(0)
     for cf, t in flows:
-        cf_d = Decimal(str(cf))
-        t_d = Decimal(str(t))
-        pv = cf_d / (one + r) ** t_d
+        time = Decimal(str(t))
+        pv = Decimal(str(cf)) / base ** (m * time)
         total_pv += pv
-        weighted += t_d * pv
+        weighted += time * pv
     if total_pv == 0:
         raise ValueError("total PV is zero")
     return _quantize(weighted / total_pv, ndigits)
 
 
-def modified_duration(flows, ytm, *, ndigits=None) -> Decimal:
-    mac = macaulay_duration(flows, ytm)
-    one = Decimal(1)
-    r = Decimal(str(ytm))
-    return _quantize(mac / (one + r), ndigits)
+def modified_duration(flows, ytm, *, periods_per_year=1, ndigits=None) -> Decimal:
+    """Macaulay duration divided by 1 + nominal yield / frequency."""
+    mac = macaulay_duration(flows, ytm, periods_per_year=periods_per_year)
+    base = Decimal(1) + Decimal(str(ytm)) / Decimal(str(periods_per_year))
+    return _quantize(mac / base, ndigits)
 
 
 def convexity(flows, ytm, *, ndigits=None) -> Decimal:
@@ -178,34 +185,32 @@ def convexity(flows, ytm, *, ndigits=None) -> Decimal:
 
 
 def zero_coupon_rate(price, t, *, mode="annual", face=Decimal(1), ndigits=None) -> Decimal:
-    """Implied spot rate from a zero-coupon bond price."""
-    p = Decimal(str(price))
-    t_d = Decimal(str(t))
-    if p <= 0:
-        raise ValueError("price must be positive")
-    if t_d <= 0:
-        raise ValueError("t must be positive")
-    one = Decimal(1)
-    if mode == "annual":
-        r = Decimal(str(float(face / p) ** (1.0 / float(t_d)))) - one
-    elif mode == "continuous":
-        from math import log
-        r = -Decimal(str(log(float(p / face)))) / t_d
+    """Invert discount_factor; positive prices above face imply negative yields."""
+    p, time, f = Decimal(str(price)), Decimal(str(t)), Decimal(str(face))
+    if p <= 0 or f <= 0 or time <= 0:
+        raise ValueError("price, face and time must be positive")
+    factor = f / p
+    if mode == "continuous":
+        rate = factor.ln() / time
+    elif mode in {"money-market", "bond-basis"}:
+        years = time / 365 if mode == "bond-basis" else time
+        rate = (factor - Decimal(1)) / years
     else:
-        raise ValueError(f"unknown mode: {mode}")
-    return _quantize(r, ndigits)
+        m = Decimal(compounding_frequency(mode))
+        rate = m * (factor ** (Decimal(1) / (m * time)) - Decimal(1))
+    return _quantize(rate, ndigits)
 
 
 def forward_rate(rate_a, rate_b, t_a, t_b, *, ndigits=None) -> Decimal:
     """Forward rate from t_a to t_b implied by spot rates rate_a, rate_b."""
-    if t_b <= t_a:
-        raise ValueError("t_b must exceed t_a")
+    if t_a < 0 or t_b <= t_a:
+        raise ValueError("times must satisfy 0 <= t_a < t_b")
     r_a = Decimal(str(rate_a))
     r_b = Decimal(str(rate_b))
     one = Decimal(1)
     base = (one + r_b) ** Decimal(str(t_b)) / (one + r_a) ** Decimal(str(t_a))
-    pow_exp = 1.0 / float(t_b - t_a)
-    fwd = Decimal(str(float(base) ** pow_exp)) - one
+    pow_exp = one / (Decimal(str(t_b)) - Decimal(str(t_a)))
+    fwd = base ** pow_exp - one
     return _quantize(fwd, ndigits)
 
 
@@ -214,9 +219,13 @@ def annuity_factor(rate, nper, *, mode="ordinary", ndigits=None) -> Decimal:
     r = Decimal(str(rate))
     n = Decimal(str(nper))
     one = Decimal(1)
+    if mode not in {"ordinary", "due", "continuous"}:
+        raise ValueError(f"unknown mode: {mode}")
     if r == 0:
         return _quantize(n, ndigits)
-    if mode == "ordinary":
+    if mode == "continuous":
+        af = (one - (-r * n).exp()) / r
+    elif mode == "ordinary":
         af = (one - (one + r) ** (-n)) / r
     elif mode == "due":
         af = (one - (one + r) ** (-n)) / r * (one + r)

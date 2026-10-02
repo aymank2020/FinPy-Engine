@@ -22,14 +22,16 @@ def _quantize(v, ndigits):
 
 
 def compound(rate, n, mode="annual"):
-    r = Decimal(str(rate))
-    one = Decimal(1)
+    r, t = Decimal(str(rate)), Decimal(str(n))
+    if not r.is_finite() or not t.is_finite():
+        raise ValueError("rate and time must be finite")
     if mode == "continuous":
-        return Decimal(str(math.exp(float(r) * float(n))))
-    if mode not in _FREQ_TABLE:
-        raise ValueError(f"unknown mode: {mode}")
-    m = _FREQ_TABLE[mode]
-    return (one + r / Decimal(m)) ** (Decimal(m) * Decimal(str(n)))
+        return (r * t).exp()
+    m = Decimal(compounding_frequency(mode))
+    base = Decimal(1) + r / m
+    if base <= 0:
+        raise ValueError("periodic rate must exceed -1")
+    return base ** (m * t)
 
 
 def compound_factor(rate, n, mode="annual", *, ndigits=None):
@@ -48,32 +50,27 @@ def nominal_from_effective(effective, periods_per_year, *, ndigits=None):
     eff = Decimal(str(effective))
     if eff <= -1:
         raise ValueError("effective rate must exceed -1")
-    base = float(one + eff)
-    return _quantize(n * (Decimal(str(base ** (1.0 / float(n)))) - one), ndigits)
+    if n <= 0:
+        raise ValueError("periods_per_year must be positive")
+    return _quantize(n * ((one + eff) ** (one / n) - one), ndigits)
 
 
 def continuous_equiv(rate, periods_per_year=1, *, ndigits=None):
-    """Continuous rate equivalent of a discrete (rate, periods_per_year)."""
+    """Annual continuous rate equivalent to a nominal rate compounded m times."""
     n = Decimal(str(periods_per_year))
-    one = Decimal(1)
-    if Decimal(str(rate)) == 0:
-        return _quantize(Decimal(0), ndigits)
-    val = float(one + Decimal(str(rate)) / n)
-    return _quantize(n * Decimal(str(math.log(val))), ndigits)
+    base = Decimal(1) + Decimal(str(rate)) / n if n > 0 else Decimal(0)
+    if n <= 0 or base <= 0:
+        raise ValueError("frequency must be positive and periodic rate exceed -1")
+    return _quantize(n * base.ln(), ndigits)
 
 
 def discrete_equiv(rate, periods_per_year, *, ndigits=None):
-    """Discrete EAR equivalent: (1 + rate)^m - 1.
-
-    Interprets the input as a per-period rate compounded m times. This
-    matches what the test suite expects for round-trip with continuous_equiv.
-    """
+    """Nominal annual rate compounded m times, equivalent to continuous rate."""
     n = Decimal(str(periods_per_year))
-    one = Decimal(1)
+    if n <= 0:
+        raise ValueError("periods_per_year must be positive")
     r = Decimal(str(rate))
-    if r == 0:
-        return _quantize(Decimal(0), ndigits)
-    return _quantize((one + r) ** n - one, ndigits)
+    return _quantize(n * ((r / n).exp() - Decimal(1)), ndigits)
 
 
 def doubling_time(rate, mode="annual", *, ndigits=None):
@@ -117,21 +114,24 @@ def growth_rate(begin, end, n, *, ndigits=None):
 def annualized_return(total_return, n_years, *, ndigits=None):
     """Annualised return given cumulative return and the holding-period years."""
     n = Decimal(str(n_years))
-    if n == 0:
-        raise ValueError("n_years must be non-zero")
+    if n <= 0:
+        raise ValueError("n_years must be positive")
     one = Decimal(1)
     base = one + Decimal(str(total_return))
     if base <= 0:
         raise ValueError("1 + total_return must be positive")
-    return _quantize(Decimal(str(float(base) ** (1.0 / float(n)))) - one, ndigits)
+    return _quantize(base ** (one / n) - one, ndigits)
 
 
 def ln(x, *, ndigits=None):
-    return _quantize(Decimal(str(math.log(float(x)))), ndigits)
+    value = Decimal(str(x))
+    if not value.is_finite() or value <= 0:
+        raise ValueError("logarithm requires a finite positive value")
+    return _quantize(value.ln(), ndigits)
 
 
 def exp(x, *, ndigits=None):
-    return _quantize(Decimal(str(math.exp(float(x)))), ndigits)
+    return _quantize(Decimal(str(x)).exp(), ndigits)
 
 
 def rule_of_72(rate, *, ndigits=None):

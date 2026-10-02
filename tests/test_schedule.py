@@ -157,7 +157,7 @@ class TestBalloonPayment:
 
     def test_zero_rate(self):
         result = balloon_payment(10000, 0.0, 25, 30)
-        assert result == Decimal("0")
+        assert result == pytest.approx(Decimal("10000") * Decimal(5) / Decimal(30), abs=Decimal("1e-20"))
 
     def test_short_balloon_positive(self):
         result = balloon_payment(100000, 0.06, 5, 30)
@@ -178,9 +178,10 @@ class TestAPRAPY:
         with pytest.raises(ValueError):
             apr_from_apy(Decimal("-2"), 12)
 
-    def test_apy_non_negative(self):
-        with pytest.raises(ValueError):
-            apy_from_apr(Decimal("-0.01"), 12)
+    def test_negative_nominal_rate_roundtrip(self):
+        effective = apy_from_apr(Decimal("-0.01"), 12)
+        assert -1 < effective < 0
+        assert apr_from_apy(effective, 12) == pytest.approx(Decimal("-0.01"), abs=Decimal("1e-20"))
 
     def test_annual_equivalent(self):
         apy = apy_from_apr(Decimal("0.05"), 1)
@@ -392,4 +393,3 @@ def test_monthly_payment_decreasing_with_years(principal, rate):
     p_short = monthly_payment(principal, rate, 5)
     p_long = monthly_payment(principal, rate, 30)
     assert p_short > p_long
-

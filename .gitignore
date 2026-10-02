@@ -9,6 +9,7 @@ __pycache__/
 *$py.class
 
 # Pytest / coverage artifacts
+.hypothesis/
 .pytest_cache/
 htmlcov/
 .coverage

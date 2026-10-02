@@ -1,16 +1,59 @@
 name: CI
 on: [push, pull_request]
+
+permissions:
+  contents: read
+
 jobs:
   test:
+    name: Installed wheel / Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    env:
+      PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - run: pip install -e .
-      - run: pip install pytest pytest-cov hypothesis
-      - run: pytest --cov=finpy --cov-report=term-missing --cov-fail-under=95
-      - run: python scripts/preflight.py
-      - run: docker build -t finpy .
-      - run: docker run --rm finpy
+          python-version: ${{ matrix.python-version }}
+      - name: Compile source, scripts and tests
+        run: python -m compileall -q src scripts tests
+      - name: Build and install wheel with declared dev dependencies
+        run: |
+          python -m pip wheel . --no-deps --wheel-dir dist
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          wheel, = Path("dist").glob("finpy-*.whl")
+          subprocess.run([sys.executable, "-m", "pip", "install", f"{wheel}[dev]"], check=True)
+          PY
+      - name: Check installed package and CLI entry points
+        run: python scripts/ci_smoke.py
+      - name: Run 50 numerical regression cases
+        run: python -m pytest tests/test_numerical_contract.py -v
+      - name: Run full suite and enforce 95 percent coverage
+        run: python -m pytest -ra --cov=finpy --cov-report=term-missing --cov-report=xml --cov-fail-under=95
+      - name: Preserve coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-python-${{ matrix.python-version }}
+          path: coverage.xml
+          if-no-files-found: warn
+
+  container:
+    name: Installed wheel / Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build container
+        run: docker build -t finpy .
+      - name: Check installed package and CLI entry points
+        run: docker run --rm finpy python scripts/ci_smoke.py
+      - name: Run full container suite
+        run: docker run --rm finpy
