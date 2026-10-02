@@ -37,3 +37,14 @@ python -m pip wheel . --no-deps
 See [numerical conventions](docs/numerical-conventions.md) for rate, cashflow,
 schedule and backtest contracts, including compatibility decisions and primary
 sources used in the numerical review.
+
+CI builds and installs a regular wheel with the declared `dev` extra on Python
+3.11 and 3.12. It compiles source, scripts and tests, verifies the installed wheel
+and all six CLI commands, runs the 50 numerical regression cases explicitly,
+then runs the full suite with the existing 95 percent coverage requirement.
+Warnings and test failures remain visible. A separate Docker job tests the same
+wheel installation and full suite in the container.
+
+`scripts/preflight.py` belongs to the historical repository-generation workflow;
+its local `dir()` discovery currently invokes none of its 18 advertised checks.
+CI uses the explicit checks above instead of treating that message as validation.

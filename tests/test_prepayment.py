@@ -2,7 +2,33 @@ from decimal import Decimal
 import pytest
 from hypothesis import given, strategies as st, assume
 from finpy.loans.prepayment import apply_prepayment, apply_lump_sum, recast_payment, extra_payment_summary
-from finpy.loans.schedule import monthly_payment
+from finpy.loans.schedule import amortization_schedule, monthly_payment
+
+
+def test_lump_sum_accepts_period_from_real_schedule():
+    rows = amortization_schedule(10000, Decimal("0.06"), 5)
+    result = apply_lump_sum(10000, Decimal("0.06"), 5, 1000, rows[11]["period"])
+    assert result["original_balance"] == pytest.approx(rows[11]["balance"], abs=Decimal("1e-20"))
+    assert result["lump_sum"] == Decimal(1000)
+    assert result["new_balance"] == result["original_balance"] - 1000
+    assert 0 < result["interest_saved"] < sum(row["interest"] for row in rows[12:])
+
+
+@pytest.mark.parametrize("period", [12, 12.0])
+def test_lump_sum_accepts_other_whole_payment_count_types(period):
+    rows = amortization_schedule(10000, Decimal("0.06"), 5)
+    assert apply_lump_sum(10000, Decimal("0.06"), 5, 1000, period) == apply_lump_sum(
+        10000, Decimal("0.06"), 5, 1000, rows[11]["period"]
+    )
+
+
+@pytest.mark.parametrize("period", [
+    12.5, Decimal("12.5"), float("nan"), Decimal("NaN"),
+    float("inf"), Decimal("Infinity"), float("-inf"), Decimal("-Infinity"),
+])
+def test_lump_sum_rejects_fractional_and_nonfinite_periods(period):
+    with pytest.raises(ValueError, match="period must be a finite non-negative integer"):
+        apply_lump_sum(10000, Decimal("0.06"), 5, 1000, period)
 
 
 class TestApplyPrepayment:

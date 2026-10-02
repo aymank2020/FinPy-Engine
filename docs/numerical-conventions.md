@@ -38,6 +38,10 @@ Loan payments are positive amounts paid by the borrower. An extra principal
 payment shortens the term while retaining the regular payment; recasting
 reduces the payment while retaining the remaining term. Interest savings
 compare actual balance-based interest, including the smaller final payment.
+`apply_lump_sum` accepts a whole payment count as int, integral float, or
+integral Decimal, including the `period` returned by `amortization_schedule`.
+Fractional, negative and nonfinite payment counts raise `ValueError` instead of
+being truncated or failing later during interest iteration.
 `extra_payment_schedule` retains its list of payment rows. The new
 `extra_payment_summary` supplies payment, term, interest and savings totals.
 `amortization_summary` retains `total_payments` / `n_periods` and adds the

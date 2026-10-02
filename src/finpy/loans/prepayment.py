@@ -9,7 +9,7 @@ Tests use:
     extra_payment_schedule(principal, rate, years, extra) -> list[dict]
 """
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from finpy.loans.schedule import (
     monthly_payment,
@@ -51,8 +51,16 @@ def apply_lump_sum(principal, annual_rate, years, lump_sum, period, *, payments_
     """Prepay after period payments, keep the payment, and shorten the term.
 
     Interest savings compare actual remaining amortization interest, including
-    the smaller final payment. Recasting is a separate operation.
+    the smaller final payment. Recasting is a separate operation. Whole payment
+    counts accept int, float and Decimal, including schedule row periods.
     """
+    try:
+        period_number = Decimal(str(period))
+    except InvalidOperation as exc:
+        raise ValueError("period must be a finite non-negative integer") from exc
+    if not period_number.is_finite() or period_number < 0 or period_number != period_number.to_integral_value():
+        raise ValueError("period must be a finite non-negative integer")
+    period = int(period_number)
     if Decimal(str(lump_sum)) < 0:
         raise ValueError("lump_sum must be non-negative")
     before = outstanding_balance(principal, annual_rate, years, period, payments_per_year=payments_per_year)
