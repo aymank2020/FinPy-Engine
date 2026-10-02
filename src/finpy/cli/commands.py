@@ -1,6 +1,26 @@
 from decimal import Decimal
-from typing import Optional
-from finpy.core.types import Cashflow, Instrument, Result
+import argparse
+import math
+
+
+def _decimal_argument(value: str) -> Decimal:
+    try:
+        result = Decimal(value)
+    except ArithmeticError as exc:
+        raise argparse.ArgumentTypeError("expected a decimal number") from exc
+    if not result.is_finite():
+        raise argparse.ArgumentTypeError("expected a finite decimal number")
+    return result
+
+
+def _float_argument(value: str) -> float:
+    try:
+        result = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected a number") from exc
+    if not math.isfinite(result):
+        raise argparse.ArgumentTypeError("expected a finite number")
+    return result
 
 
 def _parse_floats(csv: str) -> list[float]:
@@ -12,42 +32,42 @@ def _parse_floats(csv: str) -> list[float]:
 
 def register_subparsers(subparsers):
     p = subparsers.add_parser("pv", help="calculate present value")
-    p.add_argument("--rate", type=float, required=True)
-    p.add_argument("--amount", type=float, required=True)
+    p.add_argument("--rate", type=_decimal_argument, required=True)
+    p.add_argument("--amount", type=_decimal_argument, required=True)
     p.add_argument("--periods", type=int, required=True)
     p.set_defaults(func=lambda a: calculate_pv(Decimal(str(a.rate)), [(Decimal(str(a.amount)), float(a.periods))]))
 
     p = subparsers.add_parser("fv", help="calculate future value")
-    p.add_argument("--pv", type=float, required=True)
-    p.add_argument("--rate", type=float, required=True)
+    p.add_argument("--pv", type=_decimal_argument, required=True)
+    p.add_argument("--rate", type=_decimal_argument, required=True)
     p.add_argument("--periods", type=int, required=True)
-    p.add_argument("--mode", type=str, default="annual")
+    p.add_argument("--mode", choices=["annual", "semi-annual", "quarterly", "monthly", "weekly", "daily", "continuous"], default="annual")
     p.set_defaults(func=lambda a: calculate(a.pv, a.rate, a.periods, a.mode))
 
     p = subparsers.add_parser("bond", help="bond price and yield analysis")
-    p.add_argument("--face", type=float, required=True)
-    p.add_argument("--coupon", type=float, required=True)
-    p.add_argument("--ytm", type=float, required=True)
-    p.add_argument("--maturity", type=float, required=True)
+    p.add_argument("--face", type=_decimal_argument, required=True)
+    p.add_argument("--coupon", type=_decimal_argument, required=True)
+    p.add_argument("--ytm", type=_decimal_argument, required=True)
+    p.add_argument("--maturity", type=_float_argument, required=True)
     p.add_argument("--freq", type=int, default=2)
     p.set_defaults(func=lambda a: bond_analysis(a.face, a.coupon, a.ytm, a.maturity, a.freq))
 
     p = subparsers.add_parser("loan", help="amortization schedule")
-    p.add_argument("--principal", type=float, required=True)
-    p.add_argument("--rate", type=float, required=True)
-    p.add_argument("--years", type=float, required=True)
+    p.add_argument("--principal", type=_decimal_argument, required=True)
+    p.add_argument("--rate", type=_decimal_argument, required=True)
+    p.add_argument("--years", type=_float_argument, required=True)
     p.add_argument("--freq", type=int, default=12)
     p.set_defaults(func=lambda a: schedule(a.principal, a.rate, a.years, a.freq))
 
     p = subparsers.add_parser("risk", help="risk metrics from returns")
-    p.add_argument("--returns", type=float, nargs="+", required=True)
+    p.add_argument("--returns", type=_float_argument, nargs="+", required=True)
     p.set_defaults(func=lambda a: risk_metrics(a.returns))
 
     p = subparsers.add_parser("fx", help="currency conversion")
-    p.add_argument("--amount", type=float, required=True)
+    p.add_argument("--amount", type=_decimal_argument, required=True)
     p.add_argument("--from", dest="from_curr", type=str, required=True)
     p.add_argument("--to", type=str, required=True)
-    p.add_argument("--rate", type=float, required=True)
+    p.add_argument("--rate", type=_decimal_argument, required=True)
     p.set_defaults(func=lambda a: convert(a.amount, a.from_curr, a.to, a.rate))
 
 

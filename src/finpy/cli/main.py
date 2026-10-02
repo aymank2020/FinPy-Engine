@@ -1,4 +1,5 @@
-import os, sys, argparse
+import sys
+import argparse
 from finpy import __version__
 from finpy.cli.commands import register_subparsers
 from finpy.core.errors import FinPyError
@@ -19,8 +20,17 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         parser.print_help()
         return 2
-    except FinPyError as e:
+    except (FinPyError, ValueError, ArithmeticError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
     except SystemExit as e:
         return e.code
+
+
+def entry_point() -> None:
+    """Exit with the same status as the public command function."""
+    sys.exit(main())
+
+
+if __name__ == "__main__":
+    entry_point()

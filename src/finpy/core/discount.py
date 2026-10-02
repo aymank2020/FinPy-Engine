@@ -19,8 +19,12 @@ def discount_factor(rate, t, mode="annual", *, ndigits=None) -> Decimal:
     one = Decimal(1)
     n = Decimal(str(t))
     if mode == "annual":
+        if r <= -one:
+            raise ValueError("annual rate must exceed -1")
         result = (one + r) ** (-n)
     elif mode == "semi-annual":
+        if r <= -2:
+            raise ValueError("semi-annual rate must exceed -2")
         result = (one + r / 2) ** (-2 * n)
     elif mode == "continuous":
         from math import exp
@@ -34,11 +38,19 @@ def present_value_of_flow(amount, t, rate, mode="annual", *, ndigits=None) -> De
     return _quantize(Decimal(str(amount)) * discount_factor(rate, t, mode), ndigits)
 
 
-# Tests import a synonym `present_value` from this module distinct from the
-# one in tvm.present_value (different signature). This is the discount-factor
-# version: PV = amount * discount_factor(rate, t).
-def present_value(amount, t, rate, mode="annual", *, ndigits=None) -> Decimal:
-    return present_value_of_flow(amount, t, rate, mode, ndigits=ndigits)
+def present_value(amount, t, rate=None, mode="annual", *, ndigits=None) -> Decimal:
+    """Discount cash-flow pairs, or a single amount with an explicit rate.
+
+    ``present_value(flows, rate)`` aggregates (amount, time) pairs. The
+    existing ``present_value(amount, time, rate)`` form remains supported.
+    """
+    if rate is not None:
+        return present_value_of_flow(amount, t, rate, mode, ndigits=ndigits)
+    total = sum(
+        (present_value_of_flow(value, when, t, mode) for value, when in amount),
+        Decimal(0),
+    )
+    return _quantize(total, ndigits)
 
 
 def future_value_of_flow(amount, t, rate, mode="annual", *, ndigits=None) -> Decimal:
