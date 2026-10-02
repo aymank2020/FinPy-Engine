@@ -410,16 +410,25 @@ def test_std_positive_for_variable_returns(returns):
     assert result > 0
 
 
-@given(st.lists(st.floats(-0.05, 0.05), min_size=5, max_size=20))
+_positive_return = st.floats(1e-10, 0.05, exclude_min=True)
+_negative_return = st.floats(-0.05, -1e-10, exclude_max=True)
+_mixed_gain_loss_returns = st.tuples(
+    _positive_return,
+    _negative_return,
+    st.lists(st.one_of(st.just(0.0), _positive_return, _negative_return), min_size=3, max_size=18),
+).map(lambda values: [values[0], values[1], *values[2]])
+
+
+@given(_mixed_gain_loss_returns)
 def test_gain_loss_ratio_symmetric(returns):
-    assume(len(set(returns)) > 1)
-    assume(all(abs(r) > 1e-10 for r in returns if r != 0))
+    # Construct both signs within the original non-tiny domain. Every example
+    # exercises the reciprocal property, without assume/filter health failures.
     dec_rets = [Decimal(str(r)) for r in returns]
     neg = [-r for r in dec_rets]
     glr_pos = gain_loss_ratio(dec_rets)
     glr_neg = gain_loss_ratio(neg)
-    if glr_pos > 0 and glr_neg > 0:
-        assert abs(glr_pos - Decimal(1) / glr_neg) < Decimal("1")
+    assert glr_pos > 0 and glr_neg > 0
+    assert abs(glr_pos * glr_neg - Decimal(1)) < Decimal("1e-25")
 
 
 @given(st.lists(st.floats(1, 1000), min_size=3, max_size=30))

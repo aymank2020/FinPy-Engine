@@ -1,6 +1,10 @@
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 import math
+from statistics import NormalDist
+
+
+_EULER_MASCHERONI = 0.5772156649015329
 
 
 def sharpe_ratio(returns: list[float], risk_free_rate: float = 0.0, periods_per_year: Optional[int] = None, *, ndigits: Optional[int] = None) -> Decimal:
@@ -100,20 +104,61 @@ def _compute_kurtosis_stat(returns: list[float]) -> float:
 
 
 def deflated_sharpe_ratio(returns: list[float], risk_free_rate: float = 0.0, num_trials: int = 1, periods_per_year: Optional[int] = None, *, ndigits: Optional[int] = None) -> Decimal:
+    """Return the legacy Sharpe score minus an estimated search penalty.
+
+    The result has Sharpe units, not probability units. The penalty retains
+    this API's sampling-variance heuristic for the supplied returns; it does
+    not estimate variance across trials or implement the 2014 DSR probability.
+    With one trial, the expected maximum under a zero-mean null is zero.
+    Annualization and moment estimates retain their existing conventions.
+    """
     if len(returns) < 4:
         raise ValueError("Need at least 4 returns for deflated Sharpe")
-    if num_trials < 1:
-        raise ValueError("num_trials must be at least 1")
+    if isinstance(num_trials, bool) or not isinstance(num_trials, int) or num_trials < 1:
+        raise ValueError("num_trials must be a positive integer")
+    if periods_per_year is not None and (
+        isinstance(periods_per_year, bool)
+        or not isinstance(periods_per_year, int)
+        or periods_per_year < 1
+    ):
+        raise ValueError("periods_per_year must be a positive integer")
+    if ndigits is not None and (isinstance(ndigits, bool) or not isinstance(ndigits, int)):
+        raise ValueError("ndigits must be an integer")
+    try:
+        finite_inputs = all(not isinstance(r, bool) and math.isfinite(r) for r in returns)
+        finite_inputs = finite_inputs and not isinstance(risk_free_rate, bool) and math.isfinite(risk_free_rate)
+    except (TypeError, OverflowError) as exc:
+        raise ValueError("returns and risk_free_rate must be finite numbers") from exc
+    if not finite_inputs:
+        raise ValueError("returns and risk_free_rate must be finite numbers")
     n = len(returns)
-    sr_obs = _sharpe_ratio_value(returns, risk_free_rate)
-    if periods_per_year is not None:
-        sr_obs *= math.sqrt(periods_per_year)
-    skewness = _compute_skewness_stat(returns)
-    excess_kurtosis = _compute_kurtosis_stat(returns)
-    var_sr = 1 + 0.5 * sr_obs * sr_obs
-    var_sr += -skewness * sr_obs + (excess_kurtosis - 3) * sr_obs * sr_obs / 4
-    e_max_sr = (1 - math.euler_gamma) * _inverse_norm(1 - 1.0 / num_trials) + math.euler_gamma * _inverse_norm(1 - 1.0 / (num_trials * math.e))
-    e_max_sr *= math.sqrt(var_sr / n)
+    try:
+        sr_obs = _sharpe_ratio_value(returns, risk_free_rate)
+        if periods_per_year is not None:
+            sr_obs *= math.sqrt(periods_per_year)
+    except (TypeError, OverflowError, ZeroDivisionError) as exc:
+        raise ValueError("Legacy Sharpe score is undefined for these inputs") from exc
+    if not math.isfinite(sr_obs):
+        raise ValueError("Legacy Sharpe score must be finite")
+    e_max_sr = 0.0
+    if num_trials > 1:
+        try:
+            skewness = _compute_skewness_stat(returns)
+            excess_kurtosis = _compute_kurtosis_stat(returns)
+            var_sr = 1 + 0.5 * sr_obs * sr_obs
+            var_sr += -skewness * sr_obs + (excess_kurtosis - 3) * sr_obs * sr_obs / 4
+        except (TypeError, OverflowError, ZeroDivisionError) as exc:
+            raise ValueError("Legacy Sharpe variance estimate is undefined for these inputs") from exc
+        if not math.isfinite(var_sr) or var_sr < 0:
+            raise ValueError("Legacy Sharpe variance estimate must be finite and nonnegative")
+        try:
+            tail_probability = 1.0 / num_trials
+        except OverflowError as exc:
+            raise ValueError("num_trials exceeds the supported floating-point range") from exc
+        # Q(1-p) = -Q(p) avoids rounding a small tail probability away to 1.
+        e_max_sr = -(1 - _EULER_MASCHERONI) * _inverse_norm(tail_probability)
+        e_max_sr -= _EULER_MASCHERONI * _inverse_norm(tail_probability / math.e)
+        e_max_sr *= math.sqrt(var_sr / n)
     sr_deflated = sr_obs - e_max_sr
     result = Decimal(str(sr_deflated))
     if ndigits is not None:
@@ -122,20 +167,6 @@ def deflated_sharpe_ratio(returns: list[float], risk_free_rate: float = 0.0, num
 
 
 def _inverse_norm(p: float) -> float:
-    return math.sqrt(2) * _inverse_erf(2 * p - 1)
-
-
-def _inverse_erf(x: float) -> float:
-    if abs(x) >= 1:
-        return math.copysign(float('inf'), x)
-    sign = 1 if x >= 0 else -1
-    x = abs(x)
-    if x <= 0.7:
-        a, b, c, d = 0.886226899, -1.645349621, 0.914624893, -0.140543331
-        w = x * x
-        y = x * (((d * w + c) * w + b) * w + a)
-    else:
-        a, b, c, d = 1.641345311, 2.429788304, -1.550491497, 1.0
-        w = -math.log(1 - x)
-        y = (((d * w + c) * w + b) * w + a) * math.sqrt(w)
-    return sign * y
+    if not math.isfinite(p) or not 0 < p < 1:
+        raise ValueError("Normal quantile probability must be finite and between 0 and 1")
+    return NormalDist().inv_cdf(p)

@@ -78,6 +78,41 @@ the estimate. `cvar_backtest` retains tail-breach count and average excess.
 Neither is a regulatory model validation or an ES statistical test. Existing
 historical VaR/CVaR absolute-tail conventions are unchanged in this patch.
 
+### Legacy deflated Sharpe score
+
+`finpy.risk.sharpe.deflated_sharpe_ratio` returns a `Decimal` **score in Sharpe
+units**, calculated as the observed Sharpe ratio minus an estimated search
+penalty. It is not the 2014 Deflated Sharpe Ratio probability. The existing
+sampling-variance heuristic uses only the supplied return series; it does not
+infer variance across trials. The existing moment and annualization conventions
+are retained, including multiplying observed Sharpe by `sqrt(periods_per_year)`
+before estimating the penalty. A separate probability API would need an explicit
+contract and variance across trials.
+
+The default `num_trials=1` uses an expected maximum of zero under a zero-mean
+null, so it returns the finite observed score without estimating an unused
+variance or higher moments.
+For multiple trials, the existing approximation is retained with the local
+Euler–Mascheroni constant and the standard library's normal quantile. Correcting
+the old quantile approximation changes previously incorrect numerical scores;
+the return type, signature and score units are preserved. The result can be
+negative or greater than one.
+
+Returns and the per-observation risk-free rate must be finite numbers.
+`num_trials` and an optional `periods_per_year` must be positive integers;
+booleans and floats, including integral floats, are rejected for these count
+parameters. Optional `ndigits` must be an integer. Nonfinite or negative legacy
+variance estimates for multiple trials, and inputs outside the calculation's range,
+raise `ValueError`; no clamp hides an undefined estimate. Constant returns
+retain the existing observed-Sharpe sentinel zero.
+
+This runtime correction does not change `probabilistic_sharpe`, the moment
+estimators, or their model assumptions. Primary references are
+[Python NormalDist](https://docs.python.org/3.12/library/statistics.html#statistics.NormalDist.inv_cdf)
+and [Bailey and López de Prado's 2014 paper](https://www.davidhbailey.com/dhbpapers/deflated-sharpe.pdf).
+The latter defines a probability using variance across trials, distinguishing
+it from this historical score API.
+
 ## Research and regression evidence
 
 The financial equations were checked against primary implementations and
