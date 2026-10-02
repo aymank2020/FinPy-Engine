@@ -1,7 +1,7 @@
 """Loan schedule + payment helpers.
 
 Tests use signatures of the form (principal, rate, years, *, payments_per_year)
-or (principal, rate, years, period, *, ndigits) — all annual rate, "years"
+or (principal, rate, years, period, *, ndigits) â€” all annual rate, "years"
 counted in years, monthly payments by default.
 """
 
@@ -14,8 +14,25 @@ def _quantize(v, ndigits):
     return v.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP)
 
 
+
+def _period_count(years, payments_per_year):
+    frequency = Decimal(str(payments_per_year))
+    duration = Decimal(str(years))
+    if not frequency.is_finite() or frequency <= 0 or frequency != int(frequency):
+        raise ValueError("payments_per_year must be a positive integer")
+    if not duration.is_finite() or duration <= 0:
+        raise ValueError("years must be positive and finite")
+    count = duration * frequency
+    nearest = count.to_integral_value(rounding=ROUND_HALF_UP)
+    # Recover an integer period count after decimal or binary division by m.
+    n = int(nearest if abs(count - nearest) <= Decimal("1e-12") else count)
+    if n <= 0:
+        raise ValueError("term must contain at least one payment period")
+    return n
+
+
 def amortization_schedule(principal, annual_rate, years, payments_per_year=12, *, ndigits=None):
-    n = int(years * payments_per_year)
+    n = _period_count(years, payments_per_year)
     r = Decimal(str(annual_rate)) / Decimal(str(payments_per_year))
     pv = Decimal(str(principal))
     one = Decimal(1)
@@ -32,7 +49,7 @@ def amortization_schedule(principal, annual_rate, years, payments_per_year=12, *
         if period == n:
             principal_part += balance
             interest = Decimal(0) if r == 0 else interest
-            pmt_row = principal_part if r == 0 else pmt
+            pmt_row = principal_part + interest
             balance = Decimal(0)
         else:
             pmt_row = pmt
@@ -53,7 +70,7 @@ def amortization_schedule(principal, annual_rate, years, payments_per_year=12, *
 
 def monthly_payment(principal, annual_rate, years, *, payments_per_year=12, ndigits=None) -> Decimal:
     """Standard mortgage-style payment formula."""
-    n = Decimal(str(int(years * payments_per_year)))
+    n = Decimal(str(_period_count(years, payments_per_year)))
     r = Decimal(str(annual_rate)) / Decimal(str(payments_per_year))
     pv = Decimal(str(principal))
     one = Decimal(1)
@@ -65,7 +82,7 @@ def monthly_payment(principal, annual_rate, years, *, payments_per_year=12, ndig
 
 def outstanding_balance(principal, annual_rate, years, period, *, payments_per_year=12, ndigits=None) -> Decimal:
     """Remaining balance after `period` payments (0..n)."""
-    n = int(years * payments_per_year)
+    n = _period_count(years, payments_per_year)
     if period < 0:
         raise ValueError("period must be non-negative")
     if period >= n:
@@ -90,7 +107,7 @@ def outstanding_balance(principal, annual_rate, years, period, *, payments_per_y
 
 def total_interest(principal, annual_rate, years, *, payments_per_year=12, ndigits=None) -> Decimal:
     """Sum of all interest paid over the life of the loan."""
-    n = int(years * payments_per_year)
+    n = _period_count(years, payments_per_year)
     pmt = monthly_payment(principal, annual_rate, years, payments_per_year=payments_per_year)
     return _quantize(pmt * Decimal(n) - Decimal(str(principal)), ndigits)
 
@@ -103,10 +120,10 @@ def interest_only_payment(principal, annual_rate, *, payments_per_year=12, ndigi
 
 
 def balloon_payment(principal, annual_rate, balloon_years, full_term_years, *, payments_per_year=12, ndigits=None) -> Decimal:
-    """Balloon payment — outstanding balance at end of `balloon_years`."""
+    """Balloon payment â€” outstanding balance at end of `balloon_years`."""
     if balloon_years >= full_term_years:
         return _quantize(Decimal(0), ndigits)
-    period = int(balloon_years * payments_per_year)
+    period = _period_count(balloon_years, payments_per_year) if balloon_years > 0 else 0
     return outstanding_balance(principal, annual_rate, full_term_years, period, payments_per_year=payments_per_year, ndigits=ndigits)
 
 
@@ -117,7 +134,9 @@ def apr_from_apy(apy, payments_per_year, *, ndigits=None) -> Decimal:
     one = Decimal(1)
     if apy_d <= -1:
         raise ValueError("apy must exceed -1")
-    apr = m * (Decimal(str(float(one + apy_d) ** (1.0 / float(m)))) - one)
+    if m <= 0:
+        raise ValueError("payments_per_year must be positive")
+    apr = m * ((one + apy_d) ** (one / m) - one)
     return _quantize(apr, ndigits)
 
 
@@ -146,24 +165,27 @@ def loan_payoff_time(principal, annual_rate, payment, payments_per_year=12, *, n
         return _quantize(pv / p, ndigits)
     if p <= pv * r:
         raise ValueError("payment too small to amortize at this rate")
-    from math import log
-    n = -log(1 - float(pv) * float(r) / float(p)) / log(1 + float(r))
-    return _quantize(Decimal(str(n)), ndigits)
+    if one + r <= 0:
+        raise ValueError("periodic rate must exceed -1")
+    n = -(one - pv * r / p).ln() / (one + r).ln()
+    return _quantize(n, ndigits)
 
 
-def amortization_summary(principal, annual_rate, years, *, payments_per_year=12, ndigits=None) -> dict:
-    """High-level amortization KPIs in one dict."""
+def amortization_summary(principal, annual_rate, years, payments_per_year=12, *, ndigits=None) -> dict:
+    """Aggregate the unrounded schedule; keep original keys and add aliases."""
+    rows = amortization_schedule(principal, annual_rate, years, payments_per_year)
     pmt = monthly_payment(principal, annual_rate, years, payments_per_year=payments_per_year)
-    total_int = total_interest(principal, annual_rate, years, payments_per_year=payments_per_year)
-    pv = Decimal(str(principal))
-    n = Decimal(int(years * payments_per_year))
+    paid = sum((row["payment"] for row in rows), Decimal(0))
+    interest = sum((row["interest"] for row in rows), Decimal(0))
+    n = Decimal(len(rows))
     out = {
-        "principal": pv,
+        "principal": Decimal(str(principal)),
         "monthly_payment": pmt,
-        "total_payments": pmt * n,
-        "total_interest": total_int,
+        "total_payments": paid,
+        "total_paid": paid,
+        "total_interest": interest,
+        "first_year_interest": sum((row["interest"] for row in rows[:int(payments_per_year)]), Decimal(0)),
         "n_periods": n,
+        "num_payments": n,
     }
-    if ndigits is not None:
-        out = {k: v.quantize(Decimal(10) ** (-ndigits), rounding=ROUND_HALF_UP) for k, v in out.items()}
-    return out
+    return {k: _quantize(v, ndigits) for k, v in out.items()}

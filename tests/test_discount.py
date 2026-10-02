@@ -218,12 +218,12 @@ class TestMacaulayDuration:
 
 class TestModifiedDuration:
     def test_basic(self):
-        md = modified_duration(Decimal("5.0"))
-        assert md == Decimal("2.5")
+        md = modified_duration([(Decimal("1000"), 5)], Decimal("0.05"))
+        assert md == pytest.approx(Decimal(5) / Decimal("1.05"), abs=Decimal("1e-20"))
 
     def test_semi_annual(self):
-        md = modified_duration(Decimal("5.0"), periods_per_year=2)
-        assert md == pytest.approx(Decimal("1.6667"), abs=1e-4)
+        md = modified_duration([(Decimal("1000"), 5)], Decimal("0.05"), periods_per_year=2)
+        assert md == pytest.approx(Decimal(5) / Decimal("1.025"), abs=Decimal("1e-20"))
 
 
 class TestConvexity:
@@ -263,9 +263,10 @@ class TestZeroCouponRate:
         with pytest.raises(ValueError):
             zero_coupon_rate(Decimal("0"), 1.0)
 
-    def test_df_greater_than_one(self):
-        with pytest.raises(ValueError):
-            zero_coupon_rate(Decimal("2"), 1.0)
+    def test_df_greater_than_one_implies_negative_yield(self):
+        rate = zero_coupon_rate(Decimal("2"), 1.0)
+        assert rate == Decimal("-0.5")
+        assert discount_factor(rate, 1) == Decimal("2")
 
     def test_zero_time(self):
         with pytest.raises(ValueError):

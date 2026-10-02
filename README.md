@@ -29,11 +29,11 @@ The existing single-flow call `present_value(amount, time, rate)` is supported.
 ## Development
 
 ```bash
+python -m pip install -e ".[dev]"
 python -m pytest
 python -m pip wheel . --no-deps
 ```
 
-The full suite currently exposes existing inconsistencies in loan, yield, and
-risk APIs. The command entry points and decimal input handling have focused
-runtime coverage; the library still needs a separate mathematical contract
-review before its full calculation surface can be treated as verified.
+See [numerical conventions](docs/numerical-conventions.md) for rate, cashflow,
+schedule and backtest contracts, including compatibility decisions and primary
+sources used in the numerical review.

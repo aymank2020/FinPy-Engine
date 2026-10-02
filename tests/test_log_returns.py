@@ -228,9 +228,9 @@ class TestSemivariance:
         result = semivariance(returns, Decimal(0))
         assert result >= 0
 
-    def test_too_short(self):
-        with pytest.raises(ValueError):
-            semivariance([Decimal("0.01")])
+    def test_single_observation_lower_partial_moment(self):
+        assert semivariance([Decimal("0.01")]) == 0
+        assert semivariance([Decimal("-0.02")]) == Decimal("0.0004")
 
     def test_no_downside(self):
         returns = [Decimal("0.01"), Decimal("0.02"), Decimal("0.03")]
@@ -300,7 +300,7 @@ class TestGainLossRatio:
     def test_all_gains(self):
         returns = [Decimal("0.01"), Decimal("0.02")]
         result = gain_loss_ratio(returns)
-        assert result == Decimal(0)
+        assert result == Decimal("Infinity")
 
     def test_all_losses(self):
         returns = [Decimal("-0.01"), Decimal("-0.02")]
@@ -342,7 +342,7 @@ def test_cumulative_return_bounds(prices):
 
 @given(st.lists(st.floats(1, 1000), min_size=3, max_size=30))
 def test_total_return_type(prices):
-    rets = log_returns(prices)
+    rets = simple_returns(prices)
     tr = total_return(rets)
     assert isinstance(tr, Decimal)
 
@@ -426,7 +426,7 @@ def test_gain_loss_ratio_symmetric(returns):
 def test_annualized_return_positive_for_growth(prices):
     assume(all(p > 0 for p in prices))
     assume(prices[-1] > prices[0])
-    rets = log_returns(prices)
+    rets = simple_returns(prices)
     tr = total_return(rets)
     assume(tr > Decimal("-1"))
     years = Decimal(len(prices)) / Decimal(252)

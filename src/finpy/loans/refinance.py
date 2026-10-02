@@ -21,8 +21,8 @@ def _quantize(v, ndigits):
 
 def _monthly_savings(principal, old_rate, new_rate, n_periods, payments_per_year=12) -> Decimal:
     years = Decimal(n_periods) / Decimal(payments_per_year)
-    old_pmt = monthly_payment(principal, old_rate, float(years), payments_per_year=payments_per_year)
-    new_pmt = monthly_payment(principal, new_rate, float(years), payments_per_year=payments_per_year)
+    old_pmt = monthly_payment(principal, old_rate, years, payments_per_year=payments_per_year)
+    new_pmt = monthly_payment(principal, new_rate, years, payments_per_year=payments_per_year)
     return old_pmt - new_pmt
 
 
@@ -65,46 +65,68 @@ def refinance_npv(principal, old_rate, new_rate, closing_costs, n_periods, *, di
 
 
 def refinance_irr(principal, old_rate, new_rate, closing_costs, n_periods, *, payments_per_year=12, ndigits=None, max_iter=200, tol=Decimal("1e-8")) -> Decimal:
-    """IRR of the refinance cashflow stream: -closing_costs at t=0, +saving each period."""
+    """Nominal annual IRR of upfront costs and constant end-period savings.
+
+    Returns zero for non-positive savings (legacy sentinel). Positive savings
+    require positive closing costs, since no finite IRR exists with zero cost.
+    """
     saving = _monthly_savings(principal, old_rate, new_rate, n_periods, payments_per_year)
     cc = Decimal(str(closing_costs))
-    one = Decimal(1)
-
-    def npv_at(r):
-        if r == 0:
-            return saving * Decimal(n_periods) - cc
-        return saving * (one - (one + r) ** (-Decimal(n_periods))) / r - cc
-
     if saving <= 0:
         return _quantize(Decimal(0), ndigits)
+    if cc <= 0 or n_periods <= 0 or max_iter <= 0 or tol <= 0:
+        raise ValueError("costs, periods, iterations and tolerance must be positive")
+    one = Decimal(1)
+    frequency = Decimal(str(payments_per_year))
 
-    lo, hi = Decimal("-0.99") / Decimal(payments_per_year), Decimal("5") / Decimal(payments_per_year)
-    f_lo, f_hi = npv_at(lo), npv_at(hi)
-    if f_lo * f_hi > 0:
+    def npv_at(rate):
+        if rate == 0:
+            return saving * Decimal(n_periods) - cc
+        return saving * (one - (one + rate) ** (-Decimal(n_periods))) / rate - cc
+
+    at_zero = npv_at(Decimal(0))
+    if at_zero == 0:
         return _quantize(Decimal(0), ndigits)
+    if at_zero > 0:
+        lo, hi = Decimal(0), one
+        for _ in range(max_iter):
+            if npv_at(hi) < 0:
+                break
+            hi *= 2
+        else:
+            raise ValueError("could not bracket refinance IRR")
+    else:
+        lo, hi = Decimal("-0.5"), Decimal(0)
+        for _ in range(max_iter):
+            if npv_at(lo) > 0:
+                break
+            lo = (lo - one) / 2
+            if lo == -one:
+                raise ValueError("could not bracket refinance IRR")
+        else:
+            raise ValueError("could not bracket refinance IRR")
     for _ in range(max_iter):
         mid = (lo + hi) / 2
-        f_mid = npv_at(mid)
-        if abs(f_mid) < tol:
-            return _quantize(mid * Decimal(payments_per_year), ndigits)
-        if f_lo * f_mid < 0:
-            hi = mid
-        else:
+        value = npv_at(mid)
+        if abs(value) < tol:
+            return _quantize(mid * frequency, ndigits)
+        if value > 0:
             lo = mid
-            f_lo = f_mid
-    return _quantize((lo + hi) / 2 * Decimal(payments_per_year), ndigits)
+        else:
+            hi = mid
+    raise ValueError("refinance IRR did not converge")
 
 
-def rate_comparison(old_rate, new_rate, closing_costs, monthly_savings) -> dict:
-    """Quick comparison summary across the two rates and savings stream."""
-    old_r = Decimal(str(old_rate))
-    new_r = Decimal(str(new_rate))
-    cc = Decimal(str(closing_costs))
-    s = Decimal(str(monthly_savings))
-    breakeven = cc / s if s > 0 else Decimal(0)
-    return {
+def rate_comparison(old_rate, new_rate, closing_costs, monthly_savings, *, ndigits=None) -> dict:
+    """Undiscounted savings net of costs; retains original summary fields."""
+    old_r, new_r = Decimal(str(old_rate)), Decimal(str(new_rate))
+    costs, saving = Decimal(str(closing_costs)), Decimal(str(monthly_savings))
+    out = {
         "rate_drop": old_r - new_r,
-        "monthly_savings": s,
-        "closing_costs": cc,
-        "breakeven_months": breakeven,
+        "monthly_savings": saving,
+        "closing_costs": costs,
+        "breakeven_months": costs / saving if saving > 0 else Decimal(0),
+        "one_year_savings": saving * 12 - costs,
+        "five_year_savings": saving * 60 - costs,
     }
+    return {key: _quantize(value, ndigits) for key, value in out.items()}

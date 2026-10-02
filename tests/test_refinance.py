@@ -202,8 +202,9 @@ def test_rate_comparison_breakeven(monthly_savings, rate_diff):
 def test_refinance_irr_positive(principal, old_rate, new_rate, remaining):
     if old_rate <= new_rate:
         return
-    pmt_old = monthly_payment(principal, old_rate, remaining)
-    pmt_new = monthly_payment(principal, new_rate, remaining)
+    years = Decimal(remaining) / Decimal(12)
+    pmt_old = monthly_payment(principal, old_rate, years)
+    pmt_new = monthly_payment(principal, new_rate, years)
     total_undiscounted_savings = (pmt_old - pmt_new) * remaining
     if total_undiscounted_savings <= 100:
         return
@@ -232,8 +233,8 @@ def test_refinance_breakeven_increases_with_costs(principal, old_rate, new_rate,
 def test_rate_comparison_zero_savings_no_rate_change(principal, old_rate, new_rate, remaining):
     result = rate_comparison(old_rate, new_rate, 3000, 0)
     assert result["breakeven_months"] == Decimal("0")
-    assert result["one_year_savings"] == Decimal("0")
-    assert result["five_year_savings"] == Decimal("0")
+    assert result["one_year_savings"] == Decimal("-3000")
+    assert result["five_year_savings"] == Decimal("-3000")
 
 
 @given(st.floats(50000, 500000), st.floats(0.03, 0.08), st.floats(0.02, 0.07), st.integers(60, 360))
@@ -253,7 +254,7 @@ def test_rate_comparison_one_year_gt_zero(principal, old_rate, new_rate, remaini
     if ms <= 0:
         return
     result = rate_comparison(old_rate, new_rate, 3000, ms)
-    assert result["one_year_savings"] >= 0
+    assert result["one_year_savings"] == Decimal(str(ms)) * 12 - 3000
     assert result["five_year_savings"] >= result["one_year_savings"]
 
 
@@ -308,7 +309,9 @@ def test_refinance_irr_with_rate_change(principal, old_rate, new_rate, remaining
     if old_rate <= new_rate:
         return
     irr = refinance_irr(principal, old_rate, new_rate, 100, remaining)
-    assert irr > 0
+    undiscounted = refinance_npv(principal, old_rate, new_rate, 100, remaining, discount_rate=0)
+    assert (irr > 0) == (undiscounted > 0)
+    assert abs(refinance_npv(principal, old_rate, new_rate, 100, remaining, discount_rate=irr)) < Decimal("1e-7")
 
 
 @given(st.floats(50000, 500000), st.floats(0.03, 0.08), st.floats(0.02, 0.07), st.integers(60, 360))
@@ -316,5 +319,3 @@ def test_refinance_irr_zero_rate(principal, old_rate, new_rate, remaining):
     if new_rate >= old_rate:
         irr = refinance_irr(principal, old_rate, new_rate, 3000, remaining)
         assert irr == Decimal("0")
-
-

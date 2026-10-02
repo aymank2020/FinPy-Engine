@@ -34,7 +34,7 @@ def present_value(rate, nper, pmt, fv=0.0, when="end", *, ndigits=None) -> Decim
 
 
 def annuity_due(rate, nper, pmt, *, ndigits=None) -> Decimal:
-    """Annuity due — payments at the START of each period."""
+    """Annuity due â€” payments at the START of each period."""
     r = Decimal(str(rate))
     n = Decimal(str(nper))
     p = Decimal(str(pmt))
@@ -49,7 +49,7 @@ def annuity_due(rate, nper, pmt, *, ndigits=None) -> Decimal:
 
 
 def perpetuity(rate, pmt, *, ndigits=None) -> Decimal:
-    """Level perpetuity — pmt / rate."""
+    """Level perpetuity â€” pmt / rate."""
     r = Decimal(str(rate))
     p = Decimal(str(pmt))
     if r == 0:
@@ -58,7 +58,7 @@ def perpetuity(rate, pmt, *, ndigits=None) -> Decimal:
 
 
 def perpetuity_due(rate, pmt, *, ndigits=None) -> Decimal:
-    """Perpetuity due — first payment at t=0; equals pmt + pmt/rate."""
+    """Perpetuity due â€” first payment at t=0; equals pmt + pmt/rate."""
     r = Decimal(str(rate))
     p = Decimal(str(pmt))
     if r == 0:
@@ -67,7 +67,7 @@ def perpetuity_due(rate, pmt, *, ndigits=None) -> Decimal:
 
 
 def growing_perpetuity(rate, growth, pmt, *, ndigits=None) -> Decimal:
-    """Growing perpetuity (Gordon model) — pmt / (rate - growth)."""
+    """Growing perpetuity (Gordon model) â€” pmt / (rate - growth)."""
     r = Decimal(str(rate))
     g = Decimal(str(growth))
     p = Decimal(str(pmt))
@@ -76,8 +76,8 @@ def growing_perpetuity(rate, growth, pmt, *, ndigits=None) -> Decimal:
     return _quantize(p / (r - g), ndigits)
 
 
-def growing_annuity(rate, growth, nper, pmt, *, ndigits=None) -> Decimal:
-    """Growing annuity — finite-horizon analogue of growing perpetuity."""
+def growing_annuity(rate, growth, nper, pmt, when="end", *, ndigits=None) -> Decimal:
+    """Growing annuity â€” finite-horizon analogue of growing perpetuity."""
     r = Decimal(str(rate))
     g = Decimal(str(growth))
     n = Decimal(str(nper))
@@ -87,6 +87,10 @@ def growing_annuity(rate, growth, nper, pmt, *, ndigits=None) -> Decimal:
         pv = p * n / (one + r)
     else:
         pv = p / (r - g) * (one - ((one + g) / (one + r)) ** n)
+    if when not in {"end", "begin"}:
+        raise ValueError("when must be end or begin")
+    if when == "begin":
+        pv *= one + r
     return _quantize(pv, ndigits)
 
 
@@ -139,19 +143,13 @@ def pv_of_annuity_continuous(rate, t, pmt, *, ndigits=None) -> Decimal:
     return _quantize(pv, ndigits)
 
 
-def pv_of_deferred_annuity(rate, nper, pmt, defer, *, ndigits=None) -> Decimal:
-    """Annuity that begins paying after `defer` periods of waiting."""
-    r = Decimal(str(rate))
-    n = Decimal(str(nper))
-    d = Decimal(str(defer))
-    p = Decimal(str(pmt))
-    one = Decimal(1)
-    if r == 0:
-        pv = p * n
-    else:
-        annuity_pv = p * (one - (one + r) ** (-n)) / r
-        pv = annuity_pv / (one + r) ** d
-    return _quantize(pv, ndigits)
+def pv_of_deferred_annuity(rate, nper, pmt, defer, when="end", *, ndigits=None) -> Decimal:
+    """Discount an ordinary or due annuity back by defer periods."""
+    if when not in {"end", "begin"}:
+        raise ValueError("when must be end or begin")
+    r, d = Decimal(str(rate)), Decimal(str(defer))
+    value = present_value(r, nper, pmt, when=when)
+    return _quantize(value / (Decimal(1) + r) ** d, ndigits)
 
 
 def pv_of_growing_perpetuity_with_delay(rate, growth, pmt, delay, *, ndigits=None) -> Decimal:

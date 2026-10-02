@@ -136,7 +136,7 @@ class TestContinuousEquiv:
 class TestDiscreteEquiv:
     def test_basic(self):
         de = discrete_equiv(Decimal("0.05"), 2)
-        assert de == pytest.approx(Decimal("0.10254"), abs=1e-4)
+        assert de == pytest.approx(Decimal("0.050630241"), abs=1e-4)
 
     def test_annual(self):
         de = discrete_equiv(Decimal("0.10"), 1)
@@ -149,7 +149,8 @@ class TestDiscreteEquiv:
         cc = continuous_equiv(Decimal("0.08"), 4)
         ear = (Decimal(1) + Decimal("0.08") / Decimal(4)) ** Decimal(4) - Decimal(1)
         de = discrete_equiv(cc, 4)
-        assert de == pytest.approx(ear * Decimal(4), abs=1e-10)
+        assert de == pytest.approx(Decimal("0.08"), abs=Decimal("1e-20"))
+        assert effective_annual_rate(de, 4) == pytest.approx(ear, abs=Decimal("1e-20"))
 
 
 class TestDoublingTime:

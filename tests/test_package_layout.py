@@ -51,7 +51,7 @@ def test_no_orphan_test_files():
     extra = test_basenames - source_basenames - {"accrued", "discount", "types", "errors"}
     for t in extra:
         corresponding_source = [s for s in source_basenames if s in t or t in s]
-        assert corresponding_source or t in {"ci_workflow", "dockerfile_contract", "out_of_scope", "anti_similarity", "human_style", "package_layout", "pyproject_consistency", "fixture_layout", "build_repo", "build_fixtures", "replay_history", "archive_contract", "preflight", "compounding", "utils", "portfolio_schema"}, f"Potentially orphaned test: test_{t}.py"
+        assert corresponding_source or t in {"cli_runtime", "numerical_contract", "ci_workflow", "dockerfile_contract", "out_of_scope", "anti_similarity", "human_style", "package_layout", "pyproject_consistency", "fixture_layout", "build_repo", "build_fixtures", "replay_history", "archive_contract", "preflight", "compounding", "utils", "portfolio_schema"}, f"Potentially orphaned test: test_{t}.py"
 
 
 def test_test_init_exists():

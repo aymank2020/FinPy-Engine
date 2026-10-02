@@ -120,7 +120,11 @@ class TestVarBacktest:
         returns = [-0.06, -0.02, 0.01, 0.03, -0.05]
         var_est = [0.05, 0.05, 0.05, 0.05, 0.05]
         result = var_backtest(returns, var_est, 0.95)
-        assert isinstance(result, Decimal)
+        assert result["breaches"] == 1
+        assert result["breach_rate"] == Decimal("0.2")
+        assert result["expected_breaches"] == Decimal("0.25")
+        assert isinstance(result, dict)
+        assert all(isinstance(value, Decimal) for value in result.values())
 
     def test_length_mismatch(self):
         with pytest.raises(ValueError):
@@ -134,13 +138,15 @@ class TestVarBacktest:
         returns = [0.01, 0.02, 0.03]
         var_est = [0.05, 0.05, 0.05]
         result = var_backtest(returns, var_est, 0.95)
-        assert result >= 0
+        assert result["breaches"] == 0
+        assert result["breach_rate"] == 0
 
     def test_with_ndigits(self):
         returns = [-0.06, -0.02, 0.01]
         var_est = [0.05, 0.05, 0.05]
         result = var_backtest(returns, var_est, 0.95, ndigits=2)
-        assert isinstance(result, Decimal)
+        assert isinstance(result, dict)
+        assert all(isinstance(value, Decimal) for value in result.values())
 
 
 class TestCvarBacktest:
@@ -148,7 +154,10 @@ class TestCvarBacktest:
         returns = [-0.06, -0.02, 0.01, 0.03, -0.05]
         cvar_est = [0.05, 0.05, 0.05, 0.05, 0.05]
         result = cvar_backtest(returns, cvar_est, 0.95)
-        assert isinstance(result, Decimal)
+        assert result["tail_breaches"] == 1
+        assert result["avg_tail_excess"] == Decimal("0.01")
+        assert isinstance(result, dict)
+        assert all(isinstance(value, Decimal) for value in result.values())
 
     def test_length_mismatch(self):
         with pytest.raises(ValueError):
@@ -162,13 +171,14 @@ class TestCvarBacktest:
         returns = [0.01, 0.02, 0.03]
         cvar_est = [0.05, 0.05, 0.05]
         result = cvar_backtest(returns, cvar_est, 0.95)
-        assert result == Decimal(0)
+        assert result == {"tail_breaches": Decimal(0), "avg_tail_excess": Decimal(0)}
 
     def test_with_ndigits(self):
         returns = [-0.06, -0.02, 0.01]
         cvar_est = [0.05, 0.05, 0.05]
         result = cvar_backtest(returns, cvar_est, 0.95, ndigits=2)
-        assert isinstance(result, Decimal)
+        assert isinstance(result, dict)
+        assert all(isinstance(value, Decimal) for value in result.values())
 
 
 class TestExpectedShortfall:
@@ -267,14 +277,16 @@ def test_historical_cvar_output_type(returns):
 def test_var_backtest_output_type(returns):
     var_est = [0.05] * len(returns)
     result = var_backtest(returns, var_est, 0.95)
-    assert isinstance(result, Decimal)
+    assert isinstance(result, dict)
+    assert all(isinstance(value, Decimal) for value in result.values())
 
 
 @given(st.lists(st.floats(-0.1, 0.1), min_size=5, max_size=40))
 def test_cvar_backtest_output_type(returns):
     cvar_est = [0.05] * len(returns)
     result = cvar_backtest(returns, cvar_est, 0.95)
-    assert isinstance(result, Decimal)
+    assert isinstance(result, dict)
+    assert all(isinstance(value, Decimal) for value in result.values())
 
 
 @given(st.lists(st.floats(-0.1, 0.1), min_size=5, max_size=40))
@@ -293,11 +305,11 @@ def test_expected_shortfall_output_type(returns):
 def test_var_backtest_range(returns):
     var_est = [0.05] * len(returns)
     result = var_backtest(returns, var_est, 0.95)
-    assert result >= 0
+    assert result["breach_rate"] >= 0
 
 
 @given(st.lists(st.floats(-0.1, 0.1), min_size=5, max_size=40))
 def test_cvar_backtest_range(returns):
     cvar_est = [0.05] * len(returns)
     result = cvar_backtest(returns, cvar_est, 0.95)
-    assert result >= 0
+    assert result["avg_tail_excess"] >= 0
