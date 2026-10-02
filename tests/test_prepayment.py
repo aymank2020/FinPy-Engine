@@ -1,6 +1,6 @@
 from decimal import Decimal
 import pytest
-from hypothesis import given, strategies as st, assume
+from hypothesis import given, strategies as st, assume, example
 from finpy.loans.prepayment import apply_prepayment, apply_lump_sum, recast_payment, extra_payment_summary
 from finpy.loans.schedule import amortization_schedule, monthly_payment
 
@@ -301,9 +301,22 @@ def test_apply_lump_sum_interest_saved(principal, rate, years, amount, payment_n
         assert result["lump_sum"] > 0
 
 
+@example(50000.0, 0.0625, 1.9999999999999982)
 @given(st.floats(50000, 500000), st.floats(0.03, 0.08), st.floats(1, 10))
 def test_extra_payment_original_values_consistent(principal, rate, years):
     result = extra_payment_summary(principal, rate, years, 100)
     mp = monthly_payment(principal, rate, years)
+    original = amortization_schedule(principal, rate, years)
     assert result["original_payment"] == mp
-    assert result["original_periods"] == Decimal(int(years * 12))
+    assert result["original_periods"] == Decimal(len(original))
+
+
+def test_near_two_year_term_preserves_period_count_and_principal():
+    principal, rate, years = 50000.0, 0.0625, 1.9999999999999982
+    original = amortization_schedule(principal, rate, years)
+    summary = extra_payment_summary(principal, rate, years, 100)
+    assert len(original) == 24
+    assert summary["original_periods"] == Decimal(24)
+    assert original[-1]["balance"] == 0
+    assert sum((row["principal"] for row in original), Decimal(0)) == Decimal(50000)
+    assert all(row["payment"] == row["principal"] + row["interest"] for row in original)
