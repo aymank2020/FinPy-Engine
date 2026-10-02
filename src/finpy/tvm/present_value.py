@@ -34,7 +34,7 @@ def present_value(rate, nper, pmt, fv=0.0, when="end", *, ndigits=None) -> Decim
 
 
 def annuity_due(rate, nper, pmt, *, ndigits=None) -> Decimal:
-    """Annuity due â€” payments at the START of each period."""
+    """Annuity due — payments at the START of each period."""
     r = Decimal(str(rate))
     n = Decimal(str(nper))
     p = Decimal(str(pmt))
@@ -49,7 +49,7 @@ def annuity_due(rate, nper, pmt, *, ndigits=None) -> Decimal:
 
 
 def perpetuity(rate, pmt, *, ndigits=None) -> Decimal:
-    """Level perpetuity â€” pmt / rate."""
+    """Level perpetuity — pmt / rate."""
     r = Decimal(str(rate))
     p = Decimal(str(pmt))
     if r == 0:
@@ -58,7 +58,7 @@ def perpetuity(rate, pmt, *, ndigits=None) -> Decimal:
 
 
 def perpetuity_due(rate, pmt, *, ndigits=None) -> Decimal:
-    """Perpetuity due â€” first payment at t=0; equals pmt + pmt/rate."""
+    """Perpetuity due — first payment at t=0; equals pmt + pmt/rate."""
     r = Decimal(str(rate))
     p = Decimal(str(pmt))
     if r == 0:
@@ -67,7 +67,7 @@ def perpetuity_due(rate, pmt, *, ndigits=None) -> Decimal:
 
 
 def growing_perpetuity(rate, growth, pmt, *, ndigits=None) -> Decimal:
-    """Growing perpetuity (Gordon model) â€” pmt / (rate - growth)."""
+    """Growing perpetuity (Gordon model) — pmt / (rate - growth)."""
     r = Decimal(str(rate))
     g = Decimal(str(growth))
     p = Decimal(str(pmt))
@@ -77,7 +77,7 @@ def growing_perpetuity(rate, growth, pmt, *, ndigits=None) -> Decimal:
 
 
 def growing_annuity(rate, growth, nper, pmt, when="end", *, ndigits=None) -> Decimal:
-    """Growing annuity â€” finite-horizon analogue of growing perpetuity."""
+    """Growing annuity — finite-horizon analogue of growing perpetuity."""
     r = Decimal(str(rate))
     g = Decimal(str(growth))
     n = Decimal(str(nper))

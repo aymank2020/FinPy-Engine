@@ -5,7 +5,7 @@ of summary statistics tests expect: cumulative, geometric, arithmetic means,
 variance/std, skewness, kurtosis, semivariance/downside std, plus annualised
 flavours and ratio metrics (information ratio, gain/loss).
 
-Why one file? The return-series statistics conceptually move together â€”
+Why one file? The return-series statistics conceptually move together —
 splitting them across many small files would create a forest of one-function
 modules that duplicate imports and validation. I kept them here for that.
 """
@@ -139,7 +139,7 @@ def kurtosis(values, *, ndigits=None, excess=True):
 
 
 def semivariance(returns, target=Decimal(0), *, ndigits=None):
-    """Lower-partial variance vs target â€” average of squared shortfalls."""
+    """Lower-partial variance vs target — average of squared shortfalls."""
     if not returns:
         raise ValueError("returns is empty")
     rs = _to_decimal_list(returns)

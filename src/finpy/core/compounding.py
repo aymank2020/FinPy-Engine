@@ -11,7 +11,7 @@ _FREQ_TABLE = {
     "monthly": 12,
     "weekly": 52,
     "daily": 365,
-    "continuous": None,  # special â€” caller branches
+    "continuous": None,  # special — caller branches
 }
 
 
@@ -135,7 +135,7 @@ def exp(x, *, ndigits=None):
 
 
 def rule_of_72(rate, *, ndigits=None):
-    """Rule of 72 â€” periods to double, where rate is the percentage value (8 = 8%)."""
+    """Rule of 72 — periods to double, where rate is the percentage value (8 = 8%)."""
     r = Decimal(str(rate))
     if r == 0:
         raise ValueError("rate must be non-zero")
@@ -145,7 +145,7 @@ def rule_of_72(rate, *, ndigits=None):
 
 
 def rule_of_114(rate, *, ndigits=None):
-    """Rule of 114 â€” periods to triple."""
+    """Rule of 114 — periods to triple."""
     r = Decimal(str(rate))
     if r == 0:
         raise ValueError("rate must be non-zero")
@@ -155,7 +155,7 @@ def rule_of_114(rate, *, ndigits=None):
 
 
 def rule_of_144(rate, *, ndigits=None):
-    """Rule of 144 â€” periods to quadruple."""
+    """Rule of 144 — periods to quadruple."""
     r = Decimal(str(rate))
     if r == 0:
         raise ValueError("rate must be non-zero")

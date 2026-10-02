@@ -1,7 +1,7 @@
 """Loan schedule + payment helpers.
 
 Tests use signatures of the form (principal, rate, years, *, payments_per_year)
-or (principal, rate, years, period, *, ndigits) â€” all annual rate, "years"
+or (principal, rate, years, period, *, ndigits) — all annual rate, "years"
 counted in years, monthly payments by default.
 """
 
@@ -120,7 +120,7 @@ def interest_only_payment(principal, annual_rate, *, payments_per_year=12, ndigi
 
 
 def balloon_payment(principal, annual_rate, balloon_years, full_term_years, *, payments_per_year=12, ndigits=None) -> Decimal:
-    """Balloon payment â€” outstanding balance at end of `balloon_years`."""
+    """Balloon payment — outstanding balance at end of `balloon_years`."""
     if balloon_years >= full_term_years:
         return _quantize(Decimal(0), ndigits)
     period = _period_count(balloon_years, payments_per_year) if balloon_years > 0 else 0
