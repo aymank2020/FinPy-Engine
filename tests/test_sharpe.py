@@ -137,8 +137,9 @@ class TestProbabilisticSharpe:
 
     def test_zero_variance(self):
         returns = [0.01, 0.01, 0.01, 0.01, 0.01]
-        result = probabilistic_sharpe(returns, 0.0, target_sharpe=0.0)
-        assert 0 <= result <= 1
+        # Sharpe and standardized moments are undefined when the SD is zero.
+        with pytest.raises(ValueError, match="undefined for constant returns"):
+            probabilistic_sharpe(returns, 0.0, target_sharpe=0.0)
 
 
 class TestDeflatedSharpeRatio:

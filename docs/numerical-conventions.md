@@ -106,12 +106,47 @@ variance estimates for multiple trials, and inputs outside the calculation's ran
 raise `ValueError`; no clamp hides an undefined estimate. Constant returns
 retain the existing observed-Sharpe sentinel zero.
 
-This runtime correction does not change `probabilistic_sharpe`, the moment
-estimators, or their model assumptions. Primary references are
+The legacy score retains its old moment estimators and model assumptions.
+The separate probability-model correction below does not change this score API.
+Primary references are
 [Python NormalDist](https://docs.python.org/3.12/library/statistics.html#statistics.NormalDist.inv_cdf)
 and [Bailey and López de Prado's 2014 paper](https://www.davidhbailey.com/dhbpapers/deflated-sharpe.pdf).
 The latter defines a probability using variance across trials, distinguishing
 it from this historical score API.
+
+### Sharpe probabilities
+
+`finpy.risk.deflated_sharpe_probability_from_stats` implements the 2014 DSR
+probability as a separate `Decimal` result in [0, 1]. It requires observed
+Sharpe, observation count, skewness, **raw** kurtosis, variance across trial
+Sharpe estimates, and the number of independent trials. All statistics use the
+native observation frequency. Trial variance is mandatory; it is never inferred
+from the selected return series. Counts are actual integers: observations at
+least 2 and trials at least 1. One trial, or zero trial variance, has a search
+threshold of zero. More trials use the paper's expected-maximum approximation.
+
+Coherent raw moments must satisfy `raw_kurtosis >= 1 + skewness**2`. Only a
+four-ULP deficit at that boundary is treated as roundoff. Zero, negative or
+nonfinite sampling variance is rejected as an undefined model, never clamped
+to make a probability. Numeric statistics accept finite int, float and Decimal
+values at binary-float precision; booleans, strings, underflow and overflow are
+rejected. Returning Decimal does not imply arbitrary-precision statistics.
+
+`probabilistic_sharpe` keeps its signature and probability return type, with a
+corrected model: observed Sharpe uses the existing sample SD; population
+standardized moments replace the old inconsistent normalization; sampling
+uncertainty uses `T-1`. A risk-free rate is per observation. When
+`periods_per_year` is supplied, `target_sharpe` is an annual benchmark converted
+to native units by dividing by `sqrt(periods_per_year)`. Otherwise the target
+is already native. A zero benchmark is invariant to this display frequency.
+PSR probabilities therefore change from the earlier model. Constant returns
+now raise `ValueError` instead of silently producing 0.5: their Sharpe and
+standardized moments are undefined. Ordinary Sharpe, the legacy score, and the
+CLI's ordinary-Sharpe calculation retain their existing behavior.
+
+See [the primary-source research and acceptance note](sharpe-probability-research.md)
+for equations, finite-sample estimator choices, input precision, reference
+examples and assumptions about independent trials.
 
 ## Research and regression evidence
 
