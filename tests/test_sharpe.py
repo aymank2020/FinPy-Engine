@@ -1,5 +1,4 @@
 from decimal import Decimal
-import math
 import pytest
 from hypothesis import given, strategies as st, assume
 from finpy.risk.sharpe import sharpe_ratio, adjusted_sharpe
@@ -142,12 +141,13 @@ class TestProbabilisticSharpe:
         assert 0 <= result <= 1
 
 
-@pytest.mark.skipif(not hasattr(math, 'euler_gamma'), reason="requires math.euler_gamma")
 class TestDeflatedSharpeRatio:
     def test_basic(self):
         returns = [0.01, 0.02, -0.01, 0.015, 0.005, -0.02, 0.03, 0.01]
         result = deflated_sharpe_ratio(returns, 0.0)
         assert isinstance(result, Decimal)
+        assert result.is_finite()
+        assert float(result) == pytest.approx(0.46770717334674256, abs=1e-12)
 
     def test_too_short(self):
         with pytest.raises(ValueError):
@@ -161,32 +161,39 @@ class TestDeflatedSharpeRatio:
         returns = [0.01, 0.02, -0.01, 0.015, 0.005, -0.02, 0.03, 0.01]
         result = deflated_sharpe_ratio(returns, 0.0, num_trials=100)
         assert isinstance(result, Decimal)
+        assert float(result) == pytest.approx(-0.52009940234381169, abs=1e-12)
 
     def test_with_risk_free(self):
         returns = [0.01, 0.02, -0.01, 0.015, 0.005, -0.02, 0.03, 0.01]
         result = deflated_sharpe_ratio(returns, 0.005)
         assert isinstance(result, Decimal)
+        assert float(result) == pytest.approx(0.1559023911155808, abs=1e-12)
 
     def test_with_periods(self):
         returns = [0.01, 0.02, -0.01, 0.015, 0.005, -0.02, 0.03, 0.01]
         result = deflated_sharpe_ratio(returns, 0.0, periods_per_year=252)
         assert isinstance(result, Decimal)
+        assert float(result) == pytest.approx(7.4246212024587477, abs=1e-12)
 
     def test_with_ndigits(self):
         returns = [0.01, 0.02, -0.01, 0.015, 0.005, -0.02, 0.03, 0.01]
         result = deflated_sharpe_ratio(returns, 0.0, ndigits=4)
         assert isinstance(result, Decimal)
+        assert result == Decimal("0.4677")
 
     def test_nonpositive_negative_returns(self):
         returns = [-0.01, -0.02, -0.01, -0.015, -0.03, -0.02, -0.01, -0.005]
         result = deflated_sharpe_ratio(returns, 0.0)
         assert isinstance(result, Decimal)
+        assert result.is_finite()
+        assert float(result) == pytest.approx(-1.8708286933869704, abs=1e-12)
 
     def test_single_trial(self):
         returns = [0.01, 0.02, -0.01, 0.015, 0.005, -0.02, 0.03, 0.01]
         single = deflated_sharpe_ratio(returns, 0.0, num_trials=1)
         multi = deflated_sharpe_ratio(returns, 0.0, num_trials=10)
         assert single >= multi
+        assert float(multi) == pytest.approx(-0.14692839840534672, abs=1e-12)
 
 
 @given(st.lists(st.floats(-0.05, 0.05), min_size=5, max_size=30))

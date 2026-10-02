@@ -37,6 +37,14 @@ def main() -> None:
     if "archive_info" not in provenance or not urlsplit(provenance.get("url", "")).path.endswith(".whl"):
         raise RuntimeError(f"FinPy must be installed from the built wheel: {provenance}")
     print(f"Installed finpy {installed.version}: {module}; wheel: {provenance['url']}", flush=True)
+    from finpy.risk.sharpe import deflated_sharpe_ratio
+
+    returns = [0.01, 0.02, -0.01, 0.015, 0.005, -0.02, 0.03, 0.01]
+    for trials, expected in [(1, Decimal("0.4677")), (10, Decimal("-0.1469"))]:
+        score = deflated_sharpe_ratio(returns, num_trials=trials, ndigits=4)
+        if not isinstance(score, Decimal) or not score.is_finite() or score != expected:
+            raise RuntimeError(f"Installed public legacy Sharpe score failed: {score}")
+    print("PASS: installed public Sharpe module returns finite legacy scores", flush=True)
     console = Path(sysconfig.get_path("scripts")) / ("finpy.exe" if os.name == "nt" else "finpy")
 
     version = run([str(console), "--version"])
